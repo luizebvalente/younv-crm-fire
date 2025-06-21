@@ -11,7 +11,7 @@ import {
   LineChart,
   Line
 } from 'recharts'
-import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2, Pulse } from 'lucide-react'
+import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2, Zap } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import firebaseDataService from '@/services/firebaseDataService'
@@ -225,7 +225,7 @@ const Dashboard = () => {
           <CardContent>
             <div className="text-3xl font-bold text-gray-900">{medicos.length}</div>
             <p className="text-sm text-gray-600 mt-2 flex items-center">
-              <Pulse className="h-4 w-4 text-gray-500 mr-1" />
+              <Zap className="h-4 w-4 text-gray-500 mr-1" />
               <span className="text-gray-600 font-medium">0%</span> vs mês anterior
             </p>
           </CardContent>
@@ -238,7 +238,7 @@ const Dashboard = () => {
         <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center text-lg font-semibold">
-              <Pulse className="h-5 w-5 mr-2 text-purple-600" />
+              <Zap className="h-5 w-5 mr-2 text-purple-600" />
               Leads por Canal
             </CardTitle>
           </CardHeader>
