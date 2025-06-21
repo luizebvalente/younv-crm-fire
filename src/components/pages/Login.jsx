@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, LogIn, UserPlus } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
-import younvLogo from '@/assets/younv.png'
+
 
 const Login = () => {
   const [isLogin, setIsLogin] = useState(true)
@@ -63,11 +63,13 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <img 
-            src={younvLogo} 
-            alt="Younv" 
-            className="mx-auto h-16 w-auto mb-6"
-          />
+           {/* Logo Younv */}
+     <div className="flex justify-center mb-6">
+       <img 
+         src="/Younv-Official.png" 
+         alt="Younv" 
+         className="h-16 w-auto"
+       />
           <h2 className="text-3xl font-extrabold text-gray-900">
             Younv Clinical CRM
           </h2>
