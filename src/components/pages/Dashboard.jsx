@@ -8,14 +8,12 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
   LineChart,
   Line
 } from 'recharts'
-import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2 } from 'lucide-react'
+import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2, Pulse } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import firebaseDataService from '@/services/firebaseDataService'
 
 const Dashboard = () => {
@@ -127,19 +125,17 @@ const Dashboard = () => {
     return `há ${Math.floor(diffInHours / 24)} dias`
   }
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin" />
-        <span className="ml-2">Carregando dashboard...</span>
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+        <span className="ml-2 text-gray-600">Carregando dashboard...</span>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 p-6">
       {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
@@ -148,125 +144,172 @@ const Dashboard = () => {
       )}
 
       {/* Page Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600">Visão geral do seu CRM</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Visão geral do seu CRM</p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-sm text-gray-600">Sistema Online</span>
+          <div className="w-2 h-2 bg-blue-500 rounded-full ml-4"></div>
+          <span className="text-sm text-gray-600">Firebase Conectado</span>
+        </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-gray-700">
               Total de Leads
             </CardTitle>
-            <UserPlus className="h-5 w-5 text-blue-600" />
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <UserPlus className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{totalLeads}</div>
-            <p className="text-xs text-gray-600 mt-1">
-              <span className="text-green-600">+{Math.floor(totalLeads * 0.12)}</span> vs mês anterior
+            <div className="text-3xl font-bold text-gray-900">{totalLeads}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+0</span> vs mês anterior
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-gray-700">
               Agendamentos
             </CardTitle>
-            <Calendar className="h-5 w-5 text-green-600" />
+            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{agendados}</div>
-            <p className="text-xs text-gray-600 mt-1">
-              <span className="text-green-600">+{Math.floor(agendados * 0.08)}</span> vs mês anterior
+            <div className="text-3xl font-bold text-gray-900">{agendados}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+0</span> vs mês anterior
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-gray-700">
               Taxa de Conversão
             </CardTitle>
-            <TrendingUp className="h-5 w-5 text-purple-600" />
+            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{taxaConversao}%</div>
-            <p className="text-xs text-gray-600 mt-1">
-              <span className="text-green-600">+3%</span> vs mês anterior
+            <div className="text-3xl font-bold text-gray-900">{taxaConversao}%</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">+3%</span> vs mês anterior
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">
+            <CardTitle className="text-sm font-medium text-gray-700">
               Médicos Ativos
             </CardTitle>
-            <Users className="h-5 w-5 text-orange-600" />
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-gray-900">{medicos.length}</div>
-            <p className="text-xs text-gray-600 mt-1">
-              <span className="text-gray-600">0%</span> vs mês anterior
+            <div className="text-3xl font-bold text-gray-900">{medicos.length}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <Pulse className="h-4 w-4 text-gray-500 mr-1" />
+              <span className="text-gray-600 font-medium">0%</span> vs mês anterior
             </p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Leads por Canal */}
-        <Card>
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <Activity className="h-5 w-5 mr-2" />
+            <CardTitle className="flex items-center text-lg font-semibold">
+              <Pulse className="h-5 w-5 mr-2 text-purple-600" />
               Leads por Canal
             </CardTitle>
           </CardHeader>
           <CardContent>
             {leadsPorCanal().length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={leadsPorCanal()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="canal" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="quantidade" fill="#8884d8" />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="canal" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Bar dataKey="quantidade" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-gray-500">
-                Nenhum dado disponível
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <Activity className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p>Nenhum dado disponível</p>
+                </div>
               </div>
             )}
           </CardContent>
         </Card>
 
         {/* Evolução Mensal */}
-        <Card>
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <TrendingUp className="h-5 w-5 mr-2" />
+            <CardTitle className="flex items-center text-lg font-semibold">
+              <TrendingUp className="h-5 w-5 mr-2 text-purple-600" />
               Evolução de Leads
             </CardTitle>
           </CardHeader>
           <CardContent>
             {leadsPorMes().length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={leadsPorMes()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="quantidade" stroke="#8884d8" strokeWidth={2} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }} 
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="quantidade" 
+                    stroke="#8b5cf6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
+                    activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2 }}
+                  />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="flex items-center justify-center h-[250px] text-gray-500">
-                Nenhum dado disponível
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <TrendingUp className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p>Nenhum dado disponível</p>
+                </div>
               </div>
             )}
           </CardContent>
@@ -274,150 +317,86 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Leads Recentes</CardTitle>
+            <CardTitle className="text-lg font-semibold">Leads Recentes</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {leadsRecentes.map((lead) => (
-                <div key={lead.id} className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <UserPlus className="h-4 w-4 text-blue-600" />
+                <div key={lead.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                    <UserPlus className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="font-medium text-gray-900">
                       {lead.nome_paciente}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {getEspecialidadeNome(lead.especialidade_id)} - {formatTime(lead.data_registro_contato)}
+                    <p className="text-sm text-gray-500">
+                      {getEspecialidadeNome(lead.especialidade_id)} • {formatTime(lead.data_registro_contato)}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      lead.status === 'Convertido' ? 'bg-green-100 text-green-800' :
-                      lead.status === 'Agendado' ? 'bg-yellow-100 text-yellow-800' :
-                      lead.status === 'Lead' ? 'bg-blue-100 text-blue-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {lead.status}
-                    </span>
-                  </div>
+                  <Badge 
+                    variant={
+                      lead.status === 'Convertido' ? 'default' :
+                      lead.status === 'Agendado' ? 'secondary' :
+                      lead.status === 'Lead' ? 'outline' : 'destructive'
+                    }
+                    className={
+                      lead.status === 'Convertido' ? 'bg-green-100 text-green-800 hover:bg-green-100' :
+                      lead.status === 'Agendado' ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-100' :
+                      lead.status === 'Lead' ? 'bg-blue-100 text-blue-800 hover:bg-blue-100' :
+                      'bg-red-100 text-red-800 hover:bg-red-100'
+                    }
+                  >
+                    {lead.status}
+                  </Badge>
                 </div>
               ))}
               {leadsRecentes.length === 0 && (
-                <p className="text-gray-500 text-center py-4">Nenhum lead cadastrado ainda</p>
+                <div className="text-center py-8">
+                  <UserPlus className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">Nenhum lead cadastrado ainda</p>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-0 shadow-lg">
           <CardHeader>
-            <CardTitle>Próximos Agendamentos</CardTitle>
+            <CardTitle className="text-lg font-semibold">Próximos Agendamentos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {proximosAgendamentos.map((lead) => (
-                <div key={lead.id} className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                    <Calendar className="h-4 w-4 text-green-600" />
+                <div key={lead.id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-green-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className="font-medium text-gray-900">
                       {lead.nome_paciente}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {getMedicoNome(lead.medico_agendado_id)} - {getEspecialidadeNome(lead.especialidade_id)}
+                    <p className="text-sm text-gray-500">
+                      {getMedicoNome(lead.medico_agendado_id)} • {getEspecialidadeNome(lead.especialidade_id)}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium">{formatCurrency(lead.valor_orcado)}</p>
-                    <p className="text-xs text-gray-500">Agendado</p>
+                    <p className="font-semibold text-gray-900">{formatCurrency(lead.valor_orcado)}</p>
+                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                      Agendado
+                    </Badge>
                   </div>
                 </div>
               ))}
               {proximosAgendamentos.length === 0 && (
-                <p className="text-gray-500 text-center py-4">Nenhum agendamento pendente</p>
+                <div className="text-center py-8">
+                  <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p className="text-gray-500">Nenhum agendamento pendente</p>
+                </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Resumo Financeiro</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Valor Total Orçado:</span>
-                <span className="font-medium">{formatCurrency(valorTotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Valor Convertido:</span>
-                <span className="font-medium text-green-600">
-                  {formatCurrency(leads.filter(l => l.status === 'Convertido').reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0))}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Ticket Médio:</span>
-                <span className="font-medium">
-                  {formatCurrency(totalLeads > 0 ? valorTotal / totalLeads : 0)}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Performance</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Taxa de Agendamento:</span>
-                <span className="font-medium">
-                  {totalLeads > 0 ? ((agendados / totalLeads) * 100).toFixed(1) : 0}%
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Taxa de Conversão:</span>
-                <span className="font-medium text-green-600">{taxaConversao}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Leads Perdidos:</span>
-                <span className="font-medium text-red-600">
-                  {leads.filter(l => l.status === 'Perdido').length}
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Cadastros</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Médicos:</span>
-                <span className="font-medium">{medicos.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Especialidades:</span>
-                <span className="font-medium">{especialidades.length}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Procedimentos:</span>
-                <span className="font-medium">{procedimentos.length}</span>
-              </div>
             </div>
           </CardContent>
         </Card>
