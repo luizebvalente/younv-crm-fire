@@ -21,75 +21,68 @@ const Sidebar = ({ isOpen, onClose }) => {
   // Buscar dados dos leads em tempo real
   const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads', 'dataRegistroContato')
   
+  // Função para verificar se uma data é de hoje (mais precisa)
+  const isToday = (date) => {
+    if (!date) return false
+    
+    const hoje = new Date()
+    const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 0, 0, 0, 0)
+    const fimHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999)
+    
+    let dataComparar
+    if (date.seconds) {
+      // Timestamp do Firebase
+      dataComparar = new Date(date.seconds * 1000)
+    } else if (typeof date === 'string') {
+      // String de data
+      dataComparar = new Date(date)
+    } else {
+      // Objeto Date
+      dataComparar = new Date(date)
+    }
+    
+    return dataComparar >= inicioHoje && dataComparar <= fimHoje
+  }
+  
   // Calcular estatísticas em tempo real
   const stats = useMemo(() => {
     if (leadsLoading || !leads) {
       return {
         totalLeads: 0,
         leadsHoje: 0,
-        agendamentos: 0,
-        receita: 0
+        agendamentosHoje: 0,
+        receitaHoje: 0
       }
     }
 
-    const hoje = new Date()
-    hoje.setHours(0, 0, 0, 0)
-    const amanha = new Date(hoje)
-    amanha.setDate(amanha.getDate() + 1)
+    // Filtrar leads de hoje (por data de registro)
+    const leadsHoje = leads.filter(lead => isToday(lead.dataRegistroContato))
 
-    // Filtrar leads de hoje
-    const leadsHoje = leads.filter(lead => {
-      if (!lead.dataRegistroContato) return false
-      
-      let dataLead
-      if (lead.dataRegistroContato.seconds) {
-        // Timestamp do Firebase
-        dataLead = new Date(lead.dataRegistroContato.seconds * 1000)
-      } else if (typeof lead.dataRegistroContato === 'string') {
-        // String de data
-        dataLead = new Date(lead.dataRegistroContato)
-      } else {
-        // Objeto Date
-        dataLead = new Date(lead.dataRegistroContato)
-      }
-      
-      return dataLead >= hoje && dataLead < amanha
-    })
+    // Para agendamentos e receita, vamos usar uma abordagem mais específica:
+    // Como não temos campos específicos de data de agendamento/conversão,
+    // vamos considerar apenas os leads que foram REGISTRADOS hoje E têm o status correspondente
 
-    // Contar agendamentos - verificar diferentes formatos de dados
-    const agendamentos = leads.filter(lead => {
-      // Verificar tanto o formato camelCase (Firebase) quanto snake_case (frontend)
+    // Agendamentos de hoje: leads registrados hoje que estão agendados
+    const agendamentosHoje = leadsHoje.filter(lead => {
       const agendado = lead.agendado || lead.agendado === true
       const status = lead.status || lead.status
-      
-      // Considerar agendado se:
-      // 1. Campo agendado é true
-      // 2. Status é "Agendado" 
-      // 3. Status é "agendado" (case insensitive)
       return agendado === true || 
              status === 'Agendado' || 
              status === 'agendado' ||
              status === 'AGENDADO'
     }).length
 
-    // Calcular receita - verificar diferentes formatos de dados
-    const receita = leads
+    // Receita de hoje: leads registrados hoje que foram convertidos
+    const receitaHoje = leadsHoje
       .filter(lead => {
-        // Verificar tanto o formato camelCase quanto snake_case
         const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado
         const status = lead.status || lead.status
-        
-        // Considerar como receita se:
-        // 1. orcamentoFechado é true
-        // 2. Status é "Convertido"
-        // 3. Status é "convertido" (case insensitive)
         return orcamentoFechado === true || 
                status === 'Convertido' || 
                status === 'convertido' ||
                status === 'CONVERTIDO'
       })
       .reduce((total, lead) => {
-        // Verificar tanto o formato camelCase quanto snake_case
         const valorOrcado = lead.valorOrcado || lead.valor_orcado
         
         if (!valorOrcado) return total
@@ -112,8 +105,8 @@ const Sidebar = ({ isOpen, onClose }) => {
     return {
       totalLeads: leads.length,
       leadsHoje: leadsHoje.length,
-      agendamentos,
-      receita
+      agendamentosHoje,
+      receitaHoje
     }
   }, [leads, leadsLoading])
 
@@ -167,7 +160,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     return `R$ ${valor.toFixed(0)}`
   }
 
-  // Estatísticas rápidas dinâmicas
+  // Estatísticas rápidas dinâmicas - APENAS DO DIA ATUAL
   const quickStats = [
     { 
       label: 'Leads Hoje', 
@@ -176,12 +169,12 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
     { 
       label: 'Agendamentos', 
-      value: stats.agendamentos, 
+      value: stats.agendamentosHoje, 
       icon: LayoutDashboard 
     },
     { 
       label: 'Receita', 
-      value: formatarReceita(stats.receita), 
+      value: formatarReceita(stats.receitaHoje), 
       icon: BarChart3 
     },
   ]
