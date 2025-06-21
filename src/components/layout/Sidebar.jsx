@@ -12,55 +12,130 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-
-const navigation = [
-  { 
-    name: 'Dashboard', 
-    href: '/dashboard', 
-    icon: LayoutDashboard,
-    description: 'Visão geral'
-  },
-  { 
-    name: 'Leads', 
-    href: '/leads', 
-    icon: UserPlus,
-    description: 'Gestão de leads',
-    badge: 12
-  },
-  { 
-    name: 'Médicos', 
-    href: '/medicos', 
-    icon: Users,
-    description: 'Profissionais'
-  },
-  { 
-    name: 'Especialidades', 
-    href: '/especialidades', 
-    icon: Activity,
-    description: 'Áreas médicas'
-  },
-  { 
-    name: 'Procedimentos', 
-    href: '/procedimentos', 
-    icon: ClipboardList,
-    description: 'Serviços'
-  },
-  { 
-    name: 'Relatórios', 
-    href: '/relatorios', 
-    icon: BarChart3,
-    description: 'Análises'
-  },
-]
-
-const quickStats = [
-  { label: 'Leads Hoje', value: 8, icon: UserPlus },
-  { label: 'Agendamentos', value: 15, icon: LayoutDashboard },
-  { label: 'Receita', value: 'R$ 12.5k', icon: BarChart3 },
-]
+import { useRealtimeFirestore } from '@/hooks/useFirestore'
+import { useMemo } from 'react'
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation()
+  
+  // Buscar dados dos leads em tempo real
+  const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads', 'dataRegistroContato')
+  
+  // Calcular estatísticas em tempo real
+  const stats = useMemo(() => {
+    if (leadsLoading || !leads) {
+      return {
+        totalLeads: 0,
+        leadsHoje: 0,
+        agendamentos: 0,
+        receita: 0
+      }
+    }
+
+    const hoje = new Date()
+    hoje.setHours(0, 0, 0, 0)
+    const amanha = new Date(hoje)
+    amanha.setDate(amanha.getDate() + 1)
+
+    // Filtrar leads de hoje
+    const leadsHoje = leads.filter(lead => {
+      if (!lead.dataRegistroContato) return false
+      
+      let dataLead
+      if (lead.dataRegistroContato.seconds) {
+        // Timestamp do Firebase
+        dataLead = new Date(lead.dataRegistroContato.seconds * 1000)
+      } else if (typeof lead.dataRegistroContato === 'string') {
+        // String de data
+        dataLead = new Date(lead.dataRegistroContato)
+      } else {
+        // Objeto Date
+        dataLead = new Date(lead.dataRegistroContato)
+      }
+      
+      return dataLead >= hoje && dataLead < amanha
+    })
+
+    // Contar agendamentos (leads com agendado = true)
+    const agendamentos = leads.filter(lead => lead.agendado === true).length
+
+    // Calcular receita (leads com orçamento fechado)
+    const receita = leads
+      .filter(lead => lead.orcamentoFechado === true && lead.valorOrcado)
+      .reduce((total, lead) => {
+        const valor = typeof lead.valorOrcado === 'string' 
+          ? parseFloat(lead.valorOrcado.replace(/[^\d,]/g, '').replace(',', '.')) || 0
+          : lead.valorOrcado || 0
+        return total + valor
+      }, 0)
+
+    return {
+      totalLeads: leads.length,
+      leadsHoje: leadsHoje.length,
+      agendamentos,
+      receita
+    }
+  }, [leads, leadsLoading])
+
+  // Configuração da navegação com contador dinâmico
+  const navigation = [
+    { 
+      name: 'Dashboard', 
+      href: '/dashboard', 
+      icon: LayoutDashboard,
+      description: 'Visão geral'
+    },
+    { 
+      name: 'Leads', 
+      href: '/leads', 
+      icon: UserPlus,
+      description: 'Gestão de leads',
+      badge: stats.totalLeads
+    },
+    { 
+      name: 'Médicos', 
+      href: '/medicos', 
+      icon: Users,
+      description: 'Profissionais'
+    },
+    { 
+      name: 'Especialidades', 
+      href: '/especialidades', 
+      icon: Activity,
+      description: 'Áreas médicas'
+    },
+    { 
+      name: 'Procedimentos', 
+      href: '/procedimentos', 
+      icon: ClipboardList,
+      description: 'Serviços'
+    },
+    { 
+      name: 'Relatórios', 
+      href: '/relatorios', 
+      icon: BarChart3,
+      description: 'Análises'
+    },
+  ]
+
+  // Estatísticas rápidas dinâmicas
+  const quickStats = [
+    { 
+      label: 'Leads Hoje', 
+      value: stats.leadsHoje, 
+      icon: UserPlus 
+    },
+    { 
+      label: 'Agendamentos', 
+      value: stats.agendamentos, 
+      icon: LayoutDashboard 
+    },
+    { 
+      label: 'Receita', 
+      value: stats.receita > 0 ? `R$ ${(stats.receita / 1000).toFixed(1)}k` : 'R$ 0', 
+      icon: BarChart3 
+    },
+  ]
 
   return (
     <>
@@ -123,9 +198,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                       </div>
                     </div>
                   </div>
-                  {item.badge && (
+                  {item.badge !== undefined && (
                     <Badge variant="secondary" className="bg-blue-600 text-white text-xs">
-                      {item.badge}
+                      {leadsLoading ? '...' : item.badge}
                     </Badge>
                   )}
                 </Link>
@@ -145,7 +220,9 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <stat.icon className="h-4 w-4 text-slate-400 mr-2" />
                     <span className="text-slate-300">{stat.label}</span>
                   </div>
-                  <span className="text-white font-medium">{stat.value}</span>
+                  <span className="text-white font-medium">
+                    {leadsLoading ? '...' : stat.value}
+                  </span>
                 </div>
               ))}
             </div>
