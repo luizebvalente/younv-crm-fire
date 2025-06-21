@@ -56,16 +56,56 @@ const Sidebar = ({ isOpen, onClose }) => {
       return dataLead >= hoje && dataLead < amanha
     })
 
-    // Contar agendamentos (leads com agendado = true)
-    const agendamentos = leads.filter(lead => lead.agendado === true).length
+    // Contar agendamentos - verificar diferentes formatos de dados
+    const agendamentos = leads.filter(lead => {
+      // Verificar tanto o formato camelCase (Firebase) quanto snake_case (frontend)
+      const agendado = lead.agendado || lead.agendado === true
+      const status = lead.status || lead.status
+      
+      // Considerar agendado se:
+      // 1. Campo agendado é true
+      // 2. Status é "Agendado" 
+      // 3. Status é "agendado" (case insensitive)
+      return agendado === true || 
+             status === 'Agendado' || 
+             status === 'agendado' ||
+             status === 'AGENDADO'
+    }).length
 
-    // Calcular receita (leads com orçamento fechado)
+    // Calcular receita - verificar diferentes formatos de dados
     const receita = leads
-      .filter(lead => lead.orcamentoFechado === true && lead.valorOrcado)
+      .filter(lead => {
+        // Verificar tanto o formato camelCase quanto snake_case
+        const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado
+        const status = lead.status || lead.status
+        
+        // Considerar como receita se:
+        // 1. orcamentoFechado é true
+        // 2. Status é "Convertido"
+        // 3. Status é "convertido" (case insensitive)
+        return orcamentoFechado === true || 
+               status === 'Convertido' || 
+               status === 'convertido' ||
+               status === 'CONVERTIDO'
+      })
       .reduce((total, lead) => {
-        const valor = typeof lead.valorOrcado === 'string' 
-          ? parseFloat(lead.valorOrcado.replace(/[^\d,]/g, '').replace(',', '.')) || 0
-          : lead.valorOrcado || 0
+        // Verificar tanto o formato camelCase quanto snake_case
+        const valorOrcado = lead.valorOrcado || lead.valor_orcado
+        
+        if (!valorOrcado) return total
+        
+        let valor = 0
+        if (typeof valorOrcado === 'string') {
+          // Remover formatação brasileira (R$, pontos, vírgulas)
+          const valorLimpo = valorOrcado
+            .replace(/[R$\s]/g, '')
+            .replace(/\./g, '')
+            .replace(',', '.')
+          valor = parseFloat(valorLimpo) || 0
+        } else if (typeof valorOrcado === 'number') {
+          valor = valorOrcado
+        }
+        
         return total + valor
       }, 0)
 
@@ -118,6 +158,15 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
   ]
 
+  // Função para formatar valor monetário
+  const formatarReceita = (valor) => {
+    if (valor === 0) return 'R$ 0'
+    if (valor >= 1000) {
+      return `R$ ${(valor / 1000).toFixed(1)}k`
+    }
+    return `R$ ${valor.toFixed(0)}`
+  }
+
   // Estatísticas rápidas dinâmicas
   const quickStats = [
     { 
@@ -132,7 +181,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
     { 
       label: 'Receita', 
-      value: stats.receita > 0 ? `R$ ${(stats.receita / 1000).toFixed(1)}k` : 'R$ 0', 
+      value: formatarReceita(stats.receita), 
       icon: BarChart3 
     },
   ]
