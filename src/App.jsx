@@ -24,7 +24,7 @@ function AuthenticatedApp() {
   const { user } = useAuth()
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
@@ -34,7 +34,7 @@ function AuthenticatedApp() {
         <Header onMenuClick={() => setSidebarOpen(true)} user={user} />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-50 p-4">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
@@ -56,10 +56,10 @@ function AppContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Carregando...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600 mx-auto"></div>
+          <p className="mt-6 text-gray-600 font-medium">Carregando sistema...</p>
         </div>
       </div>
     )
