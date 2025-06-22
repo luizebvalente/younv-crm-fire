@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuth } from '@/contexts/AuthContext'
 
-const Header = ({ user }) => {
+const Header = ({ onMenuClick, user }) => {
   const { signOut } = useAuth()
 
   const handleLogout = async () => {
