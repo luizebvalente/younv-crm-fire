@@ -11,12 +11,12 @@ import {
   DollarSign,
   Calendar
 } from 'lucide-react'
-import { useFirestore } from '@/hooks/useFirestore'
+import { useRealtimeFirestore } from '@/hooks/useFirestore'
 import { useMemo } from 'react'
 
 export default function Sidebar() {
   const location = useLocation()
-  const { data: leads, loading: leadsLoading } = useFirestore('leads')
+  const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads')
 
   // Função para verificar se uma data é hoje
   const isToday = (dateString) => {
@@ -92,7 +92,7 @@ export default function Sidebar() {
       let valorParaUsar = 0
       
       // Se for orçamento PARCIAL, usar o valor fechado parcial
-      if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial') {
+      if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial' || statusOrcamento === 'PARCIAL') {
         console.log('Usando valor PARCIAL')
         if (valorFechadoParcial !== undefined && valorFechadoParcial !== null && valorFechadoParcial !== '') {
           if (typeof valorFechadoParcial === 'string') {
@@ -195,8 +195,12 @@ export default function Sidebar() {
     <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
       {/* Header */}
       <div className="flex items-center gap-3 p-6 border-b border-gray-800">
-        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg">Y</span>
+        <div className="w-10 h-10 flex items-center justify-center">
+          <img 
+            src="/Younv-Official.png" 
+            alt="Younv" 
+            className="h-8 w-auto"
+          />
         </div>
         <div>
           <h1 className="text-xl font-bold">Clinical CRM</h1>
