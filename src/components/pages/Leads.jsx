@@ -651,43 +651,70 @@ export default function Leads() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Leads</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Total de Leads</CardTitle>
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">Ativos</span>
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agendamentos</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Agendamentos</CardTitle>
+            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.agendados}</div>
+            <div className="text-3xl font-bold text-gray-900">{stats.agendados}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <Calendar className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">Confirmados</span>
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Convertidos</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Convertidos</CardTitle>
+            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.convertidos}</div>
+            <div className="text-3xl font-bold text-gray-900">{stats.convertidos}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-purple-600 mr-1" />
+              <span className="text-purple-600 font-medium">Fechados</span>
+            </p>
           </CardContent>
         </Card>
-        <Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-gray-700">Valor Total</CardTitle>
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <DollarSign className="h-5 w-5 text-white" />
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-gray-900">
               R$ {stats.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <DollarSign className="h-4 w-4 text-orange-600 mr-1" />
+              <span className="text-orange-600 font-medium">Receita</span>
+            </p>
           </CardContent>
         </Card>
       </div>
