@@ -192,14 +192,14 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
+        <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
       {/* Header */}
       <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
-        <div className="w-12 h-12 flex items-center justify-center">
+        <div className="flex items-center justify-center">
           <img 
             src="/Younv-Official.png" 
             alt="Younv" 
-            className="h-10 w-auto"
+            className="h-12 w-auto"
           />
         </div>
         <div className="text-center">
