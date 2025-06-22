@@ -80,21 +80,21 @@ export default function Sidebar() {
     const receitaHoje = leadsConvertidosHoje.reduce((total, lead) => {
       console.log('Processando lead:', lead.nomePaciente || lead.nome_paciente)
       
-      // Verificar se o orçamento é parcial ou total
-      const statusOrcamento = lead.statusOrcamento || lead.status_orcamento || 'Total'
+      // Verificar se o orçamento é parcial ou total - usando os nomes corretos dos campos
+      const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado || 'Total'
       const valorFechadoParcial = lead.valorFechadoParcial || lead.valor_fechado_parcial
       const valorOrcado = lead.valorOrcado || lead.valor_orcado
       
-      console.log('Status do orçamento:', statusOrcamento)
+      console.log('Status do orçamento:', orcamentoFechado)
       console.log('Valor fechado parcial:', valorFechadoParcial)
       console.log('Valor orçado:', valorOrcado)
       
       let valorParaUsar = 0
       
       // Se for orçamento PARCIAL, usar o valor fechado parcial
-      if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial' || statusOrcamento === 'PARCIAL') {
+      if (orcamentoFechado === 'Parcial' || orcamentoFechado === 'parcial' || orcamentoFechado === 'PARCIAL') {
         console.log('Usando valor PARCIAL')
-        if (valorFechadoParcial !== undefined && valorFechadoParcial !== null && valorFechadoParcial !== '') {
+        if (valorFechadoParcial !== undefined && valorFechadoParcial !== null && valorFechadoParcial !== '' && valorFechadoParcial !== 0) {
           if (typeof valorFechadoParcial === 'string') {
             // Remover formatação brasileira (R$, pontos, vírgulas)
             const valorLimpo = valorFechadoParcial
@@ -194,15 +194,15 @@ export default function Sidebar() {
   return (
     <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
       {/* Header */}
-      <div className="flex items-center gap-3 p-6 border-b border-gray-800">
-        <div className="w-10 h-10 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
+        <div className="w-12 h-12 flex items-center justify-center">
           <img 
             src="/Younv-Official.png" 
             alt="Younv" 
-            className="h-8 w-auto"
+            className="h-10 w-auto"
           />
         </div>
-        <div>
+        <div className="text-center">
           <h1 className="text-xl font-bold">Clinical CRM</h1>
           <p className="text-sm text-gray-400">v2.0</p>
         </div>
