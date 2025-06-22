@@ -358,272 +358,504 @@ export default function Leads() {
                 Novo Lead
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[1400px] w-[95vw] h-[95vh] p-0 overflow-hidden">
-              <div className="flex flex-col h-full">
-                <DialogHeader className="px-8 py-6 border-b bg-gray-50/50">
-                  <DialogTitle className="text-2xl font-bold">{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
-                </DialogHeader>
-                
-                <div className="flex-1 overflow-y-auto px-8 py-6">
-                  {existingPatient && (
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0">
-                          <Users className="h-5 w-5 text-yellow-400" />
-                        </div>
-                        <div className="ml-3">
-                          <h3 className="text-sm font-medium text-yellow-800">
-                            Paciente Recorrente Detectado!
-                          </h3>
-                          <div className="mt-2 text-sm text-yellow-700">
-                            Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
-                            <br />
-                            Status anterior: {existingPatient.status}
-                          </div>
-                        </div>
+            <DialogContent className="!max-w-[95vw] max-h-[90vh] overflow-y-auto p-6 w-full">
+              <DialogHeader>
+                <DialogTitle className="text-xl mb-4">{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
+              </DialogHeader>
+              
+              {existingPatient && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-5 w-5 text-yellow-400" />
+                    </div>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Paciente Recorrente Detectado!
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
+                        <br />
+                        Status anterior: {existingPatient.status}
                       </div>
                     </div>
-                  )}
+                  </div>
+                </div>
+              )}
 
-                  <form onSubmit={handleSubmit} className="space-y-8">
-                    {/* Dados Pessoais */}
-                    <Card className="shadow-sm border-gray-200">
-                      <CardHeader className="bg-gray-50/50 py-5">
-                        <CardTitle className="text-xl font-semibold text-gray-800">Dados Pessoais</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-6">
-                        {/* Primeira linha - 2 campos */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Nome do Paciente *</label>
-                            <Input
-                              value={formData.nome_paciente}
-                              onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
-                              required
-                              className="h-12 text-base"
-                              placeholder="Digite o nome completo"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Telefone *</label>
-                            <Input
-                              value={formData.telefone}
-                              onChange={(e) => {
-                                setFormData({...formData, telefone: e.target.value})
-                                checkExistingPatient(e.target.value)
-                              }}
-                              placeholder="(11) 99999-9999"
-                              required
-                              className="h-12 text-base"
-                            />
-                          </div>
-                        </div>
-                        
-                        {/* Segunda linha - 2 campos */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">E-mail *</label>
-                            <Input
-                              type="email"
-                              value={formData.email}
-                              onChange={(e) => setFormData({...formData, email: e.target.value})}
-                              required
-                              className="h-12 text-base"
-                              placeholder="email@exemplo.com"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Data de Nascimento *</label>
-                            <Input
-                              type="date"
-                              value={formData.data_nascimento}
-                              onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
-                              required
-                              className="h-12 text-base"
-                            />
-                          </div>
-                        </div>
-                        
-                        {/* Terceira linha - 3 campos */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Canal de Contato</label>
-                            <Select value={formData.canal_contato} onValueChange={(value) => setFormData({...formData, canal_contato: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Selecione o canal" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Instagram">Instagram</SelectItem>
-                                <SelectItem value="Google">Google</SelectItem>
-                                <SelectItem value="Facebook">Facebook</SelectItem>
-                                <SelectItem value="Indicação">Indicação</SelectItem>
-                                <SelectItem value="Outros">Outros</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Tipo de Visita</label>
-                            <Select value={formData.tipo_visita} onValueChange={(value) => setFormData({...formData, tipo_visita: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Tipo de visita" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Primeira Visita">Primeira Visita</SelectItem>
-                                <SelectItem value="Recorrente">Recorrente</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Status</label>
-                            <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Lead">Lead</SelectItem>
-                                <SelectItem value="Convertido">Convertido</SelectItem>
-                                <SelectItem value="Perdido">Perdido</SelectItem>
-                                <SelectItem value="Agendado">Agendado</SelectItem>
-                                <SelectItem value="Não Agendou">Não Agendou</SelectItem>
-                                <SelectItem value="Confirmado">Confirmado</SelectItem>
-                                <SelectItem value="Faltou">Faltou</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Dados Pessoais */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Dados Pessoais</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Primeira linha - 4 campos */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Nome do Paciente *</label>
+                        <Input
+                          value={formData.nome_paciente}
+                          onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Telefone *</label>
+                        <Input
+                          value={formData.telefone}
+                          onChange={(e) => {
+                            setFormData({...formData, telefone: e.target.value})
+                            checkExistingPatient(e.target.value)
+                          }}
+                          placeholder="(11) 99999-9999"
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">E-mail *</label>
+                        <Input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({...formData, email: e.target.value})}
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Data de Nascimento *</label>
+                        <Input
+                          type="date"
+                          value={formData.data_nascimento}
+                          onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
+                          required
+                          className="h-10"
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Segunda linha - 3 campos */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Canal de Contato</label>
+                        <Select value={formData.canal_contato} onValueChange={(value) => setFormData({...formData, canal_contato: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecione o canal" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Instagram">Instagram</SelectItem>
+                            <SelectItem value="Google">Google</SelectItem>
+                            <SelectItem value="Facebook">Facebook</SelectItem>
+                            <SelectItem value="Indicação">Indicação</SelectItem>
+                            <SelectItem value="Outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Tipo de Visita</label>
+                        <Select value={formData.tipo_visita} onValueChange={(value) => setFormData({...formData, tipo_visita: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Tipo de visita" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Primeira Visita">Primeira Visita</SelectItem>
+                            <SelectItem value="Recorrente">Recorrente</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Status</label>
+                        <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Lead">Lead</SelectItem>
+                            <SelectItem value="Convertido">Convertido</SelectItem>
+                            <SelectItem value="Perdido">Perdido</SelectItem>
+                            <SelectItem value="Agendado">Agendado</SelectItem>
+                            <SelectItem value="Não Agendou">Não Agendou</SelectItem>
+                            <SelectItem value="Confirmado">Confirmado</SelectItem>
+                            <SelectItem value="Faltou">Faltou</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Solicitação e Atendimento */}
-                    <Card className="shadow-sm border-gray-200">
-                      <CardHeader className="bg-gray-50/50 py-5">
-                        <CardTitle className="text-xl font-semibold text-gray-800">Solicitação e Atendimento</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6 space-y-6">
-                        {/* Solicitação do Paciente */}
+                {/* Solicitação e Atendimento */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Solicitação e Atendimento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Solicitação do Paciente */}
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Solicitação do Paciente</label>
+                      <Textarea
+                        value={formData.solicitacao_paciente}
+                        onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
+                        rows={3}
+                        className="resize-none"
+                      />
+                    </div>
+                    
+                    {/* Médico, Especialidade e Procedimento */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Médico</label>
+                        <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecione o médico" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {medicos.map((medico) => (
+                              <SelectItem key={medico.id} value={medico.id}>
+                                {medico.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Especialidade</label>
+                        <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecione a especialidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {especialidades.map((especialidade) => (
+                              <SelectItem key={especialidade.id} value={especialidade.id}>
+                                {especialidade.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Procedimento</label>
+                        <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecione o procedimento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {procedimentos.map((procedimento) => (
+                              <SelectItem key={procedimento.id} value={procedimento.id}>
+                                {procedimento.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Orçamento */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Orçamento</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Valor Orçado (R$)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.valor_orcado}
+                          onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
+                          placeholder="0,00"
+                          className="h-10"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Status do Orçamento</label>
+                        <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Status do orçamento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Total">Total</SelectItem>
+                            <SelectItem value="Parcial">Parcial</SelectItem>
+                            <SelectItem value="Não">Não</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {formData.orcamento_fechado === 'Parcial' && (
                         <div className="space-y-2">
-                          <label className="text-sm font-semibold text-gray-700">Solicitação do Paciente</label>
-                          <Textarea
-                            value={formData.solicitacao_paciente}
-                            onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
-                            rows={4}
-                            className="resize-none text-base"
-                            placeholder="Descreva a solicitação do paciente..."
+                          <label className="text-sm font-medium">Valor Fechado Parcial (R$)</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.valor_fechado_parcial}
+                            onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
+                            placeholder="0,00"
+                            className="h-10"
                           />
                         </div>
-                        
-                        {/* Médico, Especialidade e Procedimento */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Médico</label>
-                            <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Selecione o médico" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {medicos.map((medico) => (
-                                  <SelectItem key={medico.id} value={medico.id}>
-                                    {medico.nome}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Especialidade</label>
-                            <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Selecione a especialidade" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {especialidades.map((especialidade) => (
-                                  <SelectItem key={especialidade.id} value={especialidade.id}>
-                                    {especialidade.nome}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Procedimento</label>
-                            <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Selecione o procedimento" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {procedimentos.map((procedimento) => (
-                                  <SelectItem key={procedimento.id} value={procedimento.id}>
-                                    {procedimento.nome}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Orçamento */}
-                    <Card className="shadow-sm border-gray-200">
-                      <CardHeader className="bg-gray-50/50 py-5">
-                        <CardTitle className="text-xl font-semibold text-gray-800">Orçamento</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Valor Orçado (R$)</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={formData.valor_orcado}
-                              onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
-                              placeholder="0,00"
-                              className="h-12 text-base"
+                {/* Follow-ups */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Follow-ups</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {[1, 2, 3].map((num) => (
+                        <div key={num} className="space-y-3">
+                          <label className="text-sm font-medium">Follow-up {num}</label>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={formData[`followup${num}_realizado`]}
+                              onCheckedChange={(checked) => 
+                                setFormData({...formData, [`followup${num}_realizado`]: checked})
+                              }
                             />
+                            <label className="text-sm">Realizado</label>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700">Status do Orçamento</label>
-                            <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
-                              <SelectTrigger className="h-12 text-base">
-                                <SelectValue placeholder="Status do orçamento" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Total">Total</SelectItem>
-                                <SelectItem value="Parcial">Parcial</SelectItem>
-                                <SelectItem value="Não">Não</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          {formData.orcamento_fechado === 'Parcial' && (
-                            <div className="space-y-2">
-                              <label className="text-sm font-semibold text-gray-700">Valor Fechado Parcial (R$)</label>
-                              <Input
-                                type="number"
-                                step="0.01"
-                                value={formData.valor_fechado_parcial}
-                                onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
-                                placeholder="0,00"
-                                className="h-12 text-base"
-                              />
-                            </div>
+                          {formData[`followup${num}_realizado`] && (
+                            <Input
+                              type="date"
+                              value={formData[`followup${num}_data`]}
+                              onChange={(e) => setFormData({...formData, [`followup${num}_data`]: e.target.value})}
+                              className="h-10"
+                            />
                           )}
                         </div>
-                      </CardContent>
-                    </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
 
-                    {/* Follow-ups */}
-                    <Card className="shadow-sm border-gray-200">
-                      <CardHeader className="bg-gray-50/50 py-5">
-                        <CardTitle className="text-xl font-semibold text-gray-800">Follow-ups</CardTitle>
-                      </CardHeader>
-                      <CardContent className="p-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {[1, 2, 3].map((num) => (
-                            <div key={num} className="bg-gray-50 rounded-lg p-5 space-y-4">
-                              <div className="font-semibold text-gray-800">Follow-up {num}</div>
-                              <div className="flex items-center space-x-3">
-                                <Checkbox
-                                  checked={formData[`followup${num}_realizado`]}
-                                  onCheckedChange={(checked) => 
-                                    setFormData({...formData, [`followup${num}_realizado`]: checked})
-                                  }
+                {/* Observações */}
+                <Card>
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg font-semibold">Observações</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Observações Gerais</label>
+                      <Textarea
+                        value={formData.observacao_geral}
+                        onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
+                        rows={4}
+                        className="resize-none"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? 'Salvando...' : editingItem ? 'Atualizar Lead' : 'Criar Lead'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-700">Total de Leads</CardTitle>
+            <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
+              <Users className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">Ativos</span>
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-700">Agendamentos</CardTitle>
+            <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
+              <Calendar className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-gray-900">{stats.agendados}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <Calendar className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">Confirmados</span>
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-700">Convertidos</CardTitle>
+            <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
+              <TrendingUp className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-gray-900">{stats.convertidos}</div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <TrendingUp className="h-4 w-4 text-purple-600 mr-1" />
+              <span className="text-purple-600 font-medium">Fechados</span>
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-xl transition-shadow">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-gray-700">Valor Total</CardTitle>
+            <div className="w-10 h-10 bg-orange-500 rounded-lg flex items-center justify-center">
+              <DollarSign className="h-5 w-5 text-white" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold text-gray-900">
+              R$ {stats.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-sm text-gray-600 mt-2 flex items-center">
+              <DollarSign className="h-4 w-4 text-orange-600 mr-1" />
+              <span className="text-orange-600 font-medium">Receita</span>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar pacientes, médicos..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Todos">Todos</SelectItem>
+            <SelectItem value="Lead">Lead</SelectItem>
+            <SelectItem value="Agendado">Agendado</SelectItem>
+            <SelectItem value="Convertido">Convertido</SelectItem>
+            <SelectItem value="Perdido">Perdido</SelectItem>
+            <SelectItem value="Não Agendou">Não Agendou</SelectItem>
+            <SelectItem value="Confirmado">Confirmado</SelectItem>
+            <SelectItem value="Faltou">Faltou</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* Leads Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Leads</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-4">Paciente</th>
+                  <th className="text-left p-4">Contato</th>
+                  <th className="text-left p-4">Canal</th>
+                  <th className="text-left p-4">Médico/Especialidade</th>
+                  <th className="text-left p-4">Valor</th>
+                  <th className="text-left p-4">Status</th>
+                  <th className="text-left p-4">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredLeads.map((lead) => {
+                  const medico = medicos.find(m => m.id === lead.medico_agendado_id)
+                  const especialidade = especialidades.find(e => e.id === lead.especialidade_id)
+                  
+                  return (
+                    <tr key={lead.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4">
+                        <div>
+                          <div className="font-medium">{lead.nome_paciente}</div>
+                          <div className="text-sm text-gray-500">
+                            {new Date(lead.data_registro_contato).toLocaleDateString('pt-BR')}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm">
+                          <div>📞 {lead.telefone}</div>
+                          <div>✉️ {lead.email}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="text-sm">{lead.canal_contato}</span>
+                      </td>
+                      <td className="p-4">
+                        <div className="text-sm">
+                          <div className="font-medium">{medico?.nome || 'N/A'}</div>
+                          <div className="text-gray-500">{especialidade?.nome || 'N/A'}</div>
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <span className="font-medium">
+                          R$ {(lead.valor_orcado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <Badge className={getStatusColor(lead.status)}>
+                          {lead.status}
+                        </Badge>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(lead)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(lead.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
