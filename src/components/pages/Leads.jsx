@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { 
   Select,
   SelectContent,
@@ -28,7 +29,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Plus, Edit, Trash2, UserPlus, Phone, Mail, Calendar, DollarSign, Filter, Loader2 } from 'lucide-react'
+import { Plus, Edit, Trash2, UserPlus, Phone, Mail, Calendar, DollarSign, Filter, Loader2, AlertTriangle } from 'lucide-react'
 import firebaseDataService from '@/services/firebaseDataService'
 
 const Leads = () => {
@@ -42,6 +43,9 @@ const Leads = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [pacienteRecorrente, setPacienteRecorrente] = useState(false)
+  const [leadExistente, setLeadExistente] = useState(null)
+  
   const [formData, setFormData] = useState({
     nome_paciente: '',
     telefone: '',
@@ -60,20 +64,58 @@ const Leads = () => {
     tipo_visita: '',
     valor_orcado: '',
     orcamento_fechado: '',
+    valor_fechado_parcial: '',
     observacao_geral: '',
     perfil_comportamental_disc: '',
-    status: 'Lead'
+    status: 'Lead',
+    // Campos de follow-up
+    followup1_realizado: false,
+    followup1_data: '',
+    followup2_realizado: false,
+    followup2_data: '',
+    followup3_realizado: false,
+    followup3_data: ''
   })
 
   const canaisContato = ['Instagram', 'Google', 'Facebook', 'Indicação', 'Outros']
   const tiposVisita = ['Primeira Visita', 'Recorrente']
   const statusOrcamento = ['Total', 'Parcial', 'Não']
-  const statusLead = ['Lead', 'Agendado', 'Convertido', 'Perdido']
+  const statusLead = ['Lead', 'Convertido', 'Perdido', 'Agendado', 'Não Agendou', 'Confirmado', 'Faltou']
   const perfisDISC = ['Dominante', 'Influente', 'Estável', 'Consciente']
 
   useEffect(() => {
     loadData()
   }, [])
+
+  // Verificar se é paciente recorrente quando telefone muda
+  useEffect(() => {
+    if (formData.telefone && formData.telefone.length >= 10 && !editingItem) {
+      verificarPacienteRecorrente(formData.telefone)
+    } else {
+      setPacienteRecorrente(false)
+      setLeadExistente(null)
+    }
+  }, [formData.telefone, editingItem])
+
+  const verificarPacienteRecorrente = async (telefone) => {
+    try {
+      const leadExistente = leads.find(lead => 
+        lead.telefone === telefone && lead.id !== editingItem?.id
+      )
+      
+      if (leadExistente) {
+        setPacienteRecorrente(true)
+        setLeadExistente(leadExistente)
+        setFormData(prev => ({ ...prev, tipo_visita: 'Recorrente' }))
+      } else {
+        setPacienteRecorrente(false)
+        setLeadExistente(null)
+        setFormData(prev => ({ ...prev, tipo_visita: 'Primeira Visita' }))
+      }
+    } catch (error) {
+      console.error('Erro ao verificar paciente recorrente:', error)
+    }
+  }
 
   const loadData = async () => {
     try {
@@ -87,7 +129,6 @@ const Leads = () => {
         firebaseDataService.getAll('procedimentos')
       ])
       
-      console.log('Leads carregados:', leadsData) // Debug log
       setLeads(leadsData)
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
@@ -135,7 +176,10 @@ const Leads = () => {
       'Lead': 'bg-blue-100 text-blue-800',
       'Agendado': 'bg-yellow-100 text-yellow-800',
       'Convertido': 'bg-green-100 text-green-800',
-      'Perdido': 'bg-red-100 text-red-800'
+      'Perdido': 'bg-red-100 text-red-800',
+      'Não Agendou': 'bg-gray-100 text-gray-800',
+      'Confirmado': 'bg-purple-100 text-purple-800',
+      'Faltou': 'bg-orange-100 text-orange-800'
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
@@ -166,19 +210,24 @@ const Leads = () => {
         tipo_visita: formData.tipo_visita || '',
         valor_orcado: parseFloat(formData.valor_orcado) || 0,
         orcamento_fechado: formData.orcamento_fechado || '',
+        valor_fechado_parcial: formData.orcamento_fechado === 'Parcial' ? parseFloat(formData.valor_fechado_parcial) || 0 : 0,
         observacao_geral: formData.observacao_geral || '',
         perfil_comportamental_disc: formData.perfil_comportamental_disc || '',
         status: formData.status || 'Lead',
+        // Follow-ups
+        followup1_realizado: formData.followup1_realizado || false,
+        followup1_data: formData.followup1_data || '',
+        followup2_realizado: formData.followup2_realizado || false,
+        followup2_data: formData.followup2_data || '',
+        followup3_realizado: formData.followup3_realizado || false,
+        followup3_data: formData.followup3_data || '',
         data_registro_contato: editingItem ? editingItem.data_registro_contato : new Date().toISOString()
       }
-      
-      console.log('Dados a serem salvos:', dataToSave) // Debug log
       
       if (editingItem) {
         await firebaseDataService.update('leads', editingItem.id, dataToSave)
       } else {
-        const result = await firebaseDataService.create('leads', dataToSave)
-        console.log('Lead criado:', result) // Debug log
+        await firebaseDataService.create('leads', dataToSave)
       }
       
       await loadData()
@@ -192,7 +241,6 @@ const Leads = () => {
   }
 
   const handleEdit = (item) => {
-    console.log('Editando item:', item) // Debug log
     setEditingItem(item)
     setFormData({
       nome_paciente: item.nome_paciente || '',
@@ -212,9 +260,17 @@ const Leads = () => {
       tipo_visita: item.tipo_visita || '',
       valor_orcado: item.valor_orcado?.toString() || '',
       orcamento_fechado: item.orcamento_fechado || '',
+      valor_fechado_parcial: item.valor_fechado_parcial?.toString() || '',
       observacao_geral: item.observacao_geral || '',
       perfil_comportamental_disc: item.perfil_comportamental_disc || '',
-      status: item.status || 'Lead'
+      status: item.status || 'Lead',
+      // Follow-ups
+      followup1_realizado: item.followup1_realizado || false,
+      followup1_data: item.followup1_data || '',
+      followup2_realizado: item.followup2_realizado || false,
+      followup2_data: item.followup2_data || '',
+      followup3_realizado: item.followup3_realizado || false,
+      followup3_data: item.followup3_data || ''
     })
     setIsDialogOpen(true)
   }
@@ -251,13 +307,22 @@ const Leads = () => {
       tipo_visita: '',
       valor_orcado: '',
       orcamento_fechado: '',
+      valor_fechado_parcial: '',
       observacao_geral: '',
       perfil_comportamental_disc: '',
-      status: 'Lead'
+      status: 'Lead',
+      followup1_realizado: false,
+      followup1_data: '',
+      followup2_realizado: false,
+      followup2_data: '',
+      followup3_realizado: false,
+      followup3_data: ''
     })
     setEditingItem(null)
     setIsDialogOpen(false)
     setError(null)
+    setPacienteRecorrente(false)
+    setLeadExistente(null)
   }
 
   const filteredLeads = filterStatus === 'all' 
@@ -265,7 +330,7 @@ const Leads = () => {
     : leads.filter(lead => lead.status === filterStatus)
 
   const totalLeads = leads.length
-  const agendados = leads.filter(l => l.agendado).length
+  const agendados = leads.filter(l => l.status === 'Agendado' || l.status === 'Confirmado').length
   const convertidos = leads.filter(l => l.status === 'Convertido').length
   const valorTotal = leads.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
 
@@ -301,229 +366,399 @@ const Leads = () => {
               Novo Lead
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-xl">
                 {editingItem ? 'Editar Lead' : 'Novo Lead'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="nome_paciente">Nome do Paciente</Label>
-                  <Input
-                    id="nome_paciente"
-                    value={formData.nome_paciente}
-                    onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
-                    required
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="telefone">Telefone</Label>
-                  <Input
-                    id="telefone"
-                    value={formData.telefone}
-                    onChange={(e) => setFormData({...formData, telefone: e.target.value})}
-                    required
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    required
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="data_nascimento">Data de Nascimento</Label>
-                  <Input
-                    id="data_nascimento"
-                    type="date"
-                    value={formData.data_nascimento}
-                    onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
-                    required
-                    disabled={saving}
-                  />
-                </div>
-              </div>
+            
+            {/* Alerta de Paciente Recorrente */}
+            {pacienteRecorrente && leadExistente && (
+              <Alert className="mb-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>
+                  <strong>Paciente Recorrente Detectado!</strong><br />
+                  Este telefone já está cadastrado para: <strong>{leadExistente.nome_paciente}</strong><br />
+                  Status anterior: <Badge className={getStatusColor(leadExistente.status)}>{leadExistente.status}</Badge>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Seção 1: Dados Pessoais */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Dados Pessoais</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="nome_paciente">Nome do Paciente *</Label>
+                      <Input
+                        id="nome_paciente"
+                        value={formData.nome_paciente}
+                        onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
+                        required
+                        disabled={saving}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="telefone">Telefone *</Label>
+                      <Input
+                        id="telefone"
+                        value={formData.telefone}
+                        onChange={(e) => setFormData({...formData, telefone: e.target.value})}
+                        required
+                        disabled={saving}
+                        className="mt-1"
+                        placeholder="(11) 99999-9999"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="email">E-mail *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        required
+                        disabled={saving}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="data_nascimento">Data de Nascimento *</Label>
+                      <Input
+                        id="data_nascimento"
+                        type="date"
+                        value={formData.data_nascimento}
+                        onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
+                        required
+                        disabled={saving}
+                        className="mt-1"
+                      />
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="canal_contato">Canal de Contato</Label>
-                  <Select 
-                    value={formData.canal_contato} 
-                    onValueChange={(value) => setFormData({...formData, canal_contato: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o canal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {canaisContato.map((canal) => (
-                        <SelectItem key={canal} value={canal}>
-                          {canal}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Select 
-                    value={formData.status} 
-                    onValueChange={(value) => setFormData({...formData, status: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusLead.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="canal_contato">Canal de Contato</Label>
+                      <Select 
+                        value={formData.canal_contato} 
+                        onValueChange={(value) => setFormData({...formData, canal_contato: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecione o canal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {canaisContato.map((canal) => (
+                            <SelectItem key={canal} value={canal}>
+                              {canal}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="tipo_visita">Tipo de Visita</Label>
+                      <Select 
+                        value={formData.tipo_visita} 
+                        onValueChange={(value) => setFormData({...formData, tipo_visita: value})}
+                        disabled={saving || pacienteRecorrente}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Tipo de visita" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {tiposVisita.map((tipo) => (
+                            <SelectItem key={tipo} value={tipo}>
+                              {tipo}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select 
+                        value={formData.status} 
+                        onValueChange={(value) => setFormData({...formData, status: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecione o status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusLead.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div>
-                <Label htmlFor="solicitacao_paciente">Solicitação do Paciente</Label>
-                <Textarea
-                  id="solicitacao_paciente"
-                  value={formData.solicitacao_paciente}
-                  onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
-                  rows={3}
-                  disabled={saving}
-                />
-              </div>
+              {/* Seção 2: Solicitação e Atendimento */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Solicitação e Atendimento</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label htmlFor="solicitacao_paciente">Solicitação do Paciente</Label>
+                    <Textarea
+                      id="solicitacao_paciente"
+                      value={formData.solicitacao_paciente}
+                      onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
+                      rows={3}
+                      disabled={saving}
+                      className="mt-1"
+                      placeholder="Descreva a solicitação do paciente..."
+                    />
+                  </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="medico">Médico</Label>
-                  <Select 
-                    value={formData.medico_agendado_id} 
-                    onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o médico" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {medicos.map((medico) => (
-                        <SelectItem key={medico.id} value={medico.id}>
-                          {medico.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="especialidade">Especialidade</Label>
-                  <Select 
-                    value={formData.especialidade_id} 
-                    onValueChange={(value) => setFormData({...formData, especialidade_id: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione a especialidade" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {especialidades.map((esp) => (
-                        <SelectItem key={esp.id} value={esp.id}>
-                          {esp.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="procedimento">Procedimento</Label>
-                  <Select 
-                    value={formData.procedimento_agendado_id} 
-                    onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o procedimento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {procedimentos.map((proc) => (
-                        <SelectItem key={proc.id} value={proc.id}>
-                          {proc.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="medico">Médico</Label>
+                      <Select 
+                        value={formData.medico_agendado_id} 
+                        onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecione o médico" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {medicos.map((medico) => (
+                            <SelectItem key={medico.id} value={medico.id}>
+                              {medico.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="especialidade">Especialidade</Label>
+                      <Select 
+                        value={formData.especialidade_id} 
+                        onValueChange={(value) => setFormData({...formData, especialidade_id: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecione a especialidade" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {especialidades.map((esp) => (
+                            <SelectItem key={esp.id} value={esp.id}>
+                              {esp.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="procedimento">Procedimento</Label>
+                      <Select 
+                        value={formData.procedimento_agendado_id} 
+                        onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Selecione o procedimento" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {procedimentos.map((proc) => (
+                            <SelectItem key={proc.id} value={proc.id}>
+                              {proc.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="valor_orcado">Valor Orçado (R$)</Label>
-                  <Input
-                    id="valor_orcado"
-                    type="number"
-                    step="0.01"
-                    value={formData.valor_orcado}
-                    onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
-                    disabled={saving}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="orcamento_fechado">Orçamento Fechado</Label>
-                  <Select 
-                    value={formData.orcamento_fechado} 
-                    onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}
-                    disabled={saving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status do orçamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOrcamento.map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+              {/* Seção 3: Orçamento */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Orçamento</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="valor_orcado">Valor Orçado (R$)</Label>
+                      <Input
+                        id="valor_orcado"
+                        type="number"
+                        step="0.01"
+                        value={formData.valor_orcado}
+                        onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
+                        disabled={saving}
+                        className="mt-1"
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="orcamento_fechado">Status do Orçamento</Label>
+                      <Select 
+                        value={formData.orcamento_fechado} 
+                        onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}
+                        disabled={saving}
+                      >
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder="Status do orçamento" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOrcamento.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formData.orcamento_fechado === 'Parcial' && (
+                      <div>
+                        <Label htmlFor="valor_fechado_parcial">Valor Fechado Parcial (R$)</Label>
+                        <Input
+                          id="valor_fechado_parcial"
+                          type="number"
+                          step="0.01"
+                          value={formData.valor_fechado_parcial}
+                          onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
+                          disabled={saving}
+                          className="mt-1"
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
-              <div>
-                <Label htmlFor="observacao_geral">Observações Gerais</Label>
-                <Textarea
-                  id="observacao_geral"
-                  value={formData.observacao_geral}
-                  onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
-                  rows={3}
-                  disabled={saving}
-                />
-              </div>
+              {/* Seção 4: Follow-ups */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Follow-ups</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Follow-up 1 */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Follow-up 1</Label>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="followup1"
+                          checked={formData.followup1_realizado}
+                          onCheckedChange={(checked) => setFormData({...formData, followup1_realizado: checked})}
+                          disabled={saving}
+                        />
+                        <Label htmlFor="followup1" className="text-sm">Realizado</Label>
+                      </div>
+                      {formData.followup1_realizado && (
+                        <Input
+                          type="date"
+                          value={formData.followup1_data}
+                          onChange={(e) => setFormData({...formData, followup1_data: e.target.value})}
+                          disabled={saving}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
 
-              <div className="flex justify-end space-x-2">
+                    {/* Follow-up 2 */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Follow-up 2</Label>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="followup2"
+                          checked={formData.followup2_realizado}
+                          onCheckedChange={(checked) => setFormData({...formData, followup2_realizado: checked})}
+                          disabled={saving}
+                        />
+                        <Label htmlFor="followup2" className="text-sm">Realizado</Label>
+                      </div>
+                      {formData.followup2_realizado && (
+                        <Input
+                          type="date"
+                          value={formData.followup2_data}
+                          onChange={(e) => setFormData({...formData, followup2_data: e.target.value})}
+                          disabled={saving}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
+
+                    {/* Follow-up 3 */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Follow-up 3</Label>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="followup3"
+                          checked={formData.followup3_realizado}
+                          onCheckedChange={(checked) => setFormData({...formData, followup3_realizado: checked})}
+                          disabled={saving}
+                        />
+                        <Label htmlFor="followup3" className="text-sm">Realizado</Label>
+                      </div>
+                      {formData.followup3_realizado && (
+                        <Input
+                          type="date"
+                          value={formData.followup3_data}
+                          onChange={(e) => setFormData({...formData, followup3_data: e.target.value})}
+                          disabled={saving}
+                          className="mt-2"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Seção 5: Observações */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Observações</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div>
+                    <Label htmlFor="observacao_geral">Observações Gerais</Label>
+                    <Textarea
+                      id="observacao_geral"
+                      value={formData.observacao_geral}
+                      onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
+                      rows={4}
+                      disabled={saving}
+                      className="mt-1"
+                      placeholder="Adicione observações importantes sobre o lead..."
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Botões de Ação */}
+              <div className="flex justify-end space-x-3 pt-4">
                 <Button type="button" variant="outline" onClick={resetForm} disabled={saving}>
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={saving}>
+                <Button type="submit" disabled={saving} className="min-w-[120px]">
                   {saving ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Salvando...
                     </>
                   ) : (
-                    editingItem ? 'Atualizar' : 'Criar'
+                    editingItem ? 'Atualizar Lead' : 'Criar Lead'
                   )}
                 </Button>
               </div>
@@ -598,85 +833,84 @@ const Leads = () => {
         <CardContent>
           {filteredLeads.length === 0 ? (
             <div className="text-center py-8">
-              <UserPlus className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Nenhum lead encontrado.</p>
-              <p className="text-gray-400 text-sm">Clique em "Novo Lead" para começar.</p>
+              <UserPlus className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-500">Nenhum lead encontrado</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Paciente</TableHead>
-                  <TableHead>Contato</TableHead>
-                  <TableHead>Canal</TableHead>
-                  <TableHead>Médico/Especialidade</TableHead>
-                  <TableHead>Valor</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLeads.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{lead.nome_paciente || 'N/A'}</div>
-                        <div className="text-sm text-gray-500">
-                          {formatDate(lead.data_registro_contato)}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex items-center text-sm">
-                          <Phone className="h-3 w-3 mr-1" />
-                          {lead.telefone || 'N/A'}
-                        </div>
-                        <div className="flex items-center text-sm">
-                          <Mail className="h-3 w-3 mr-1" />
-                          {lead.email || 'N/A'}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{lead.canal_contato || 'N/A'}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{getMedicoNome(lead.medico_agendado_id)}</div>
-                        <div className="text-sm text-gray-500">
-                          {getEspecialidadeNome(lead.especialidade_id)}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{formatCurrency(lead.valor_orcado)}</TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(lead.status)}>
-                        {lead.status || 'Lead'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleEdit(lead)}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDelete(lead.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Paciente</TableHead>
+                    <TableHead>Contato</TableHead>
+                    <TableHead>Canal</TableHead>
+                    <TableHead>Médico/Especialidade</TableHead>
+                    <TableHead>Valor</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredLeads.map((lead) => (
+                    <TableRow key={lead.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{lead.nome_paciente}</div>
+                          <div className="text-sm text-gray-500">
+                            {formatDate(lead.data_registro_contato)}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="flex items-center text-sm">
+                            <Phone className="h-3 w-3 mr-1" />
+                            {lead.telefone}
+                          </div>
+                          <div className="flex items-center text-sm">
+                            <Mail className="h-3 w-3 mr-1" />
+                            {lead.email}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{lead.canal_contato}</TableCell>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{getMedicoNome(lead.medico_agendado_id)}</div>
+                          <div className="text-sm text-gray-500">
+                            {getEspecialidadeNome(lead.especialidade_id)}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatCurrency(lead.valor_orcado)}</TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(lead.status)}>
+                          {lead.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex space-x-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEdit(lead)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDelete(lead.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
