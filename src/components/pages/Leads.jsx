@@ -506,6 +506,153 @@ export default function Leads() {
                           className="w-full resize-none"
                         />
                       </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Médico</label>
+                          <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione o médico" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {medicos.map((medico) => (
+                                <SelectItem key={medico.id} value={medico.id}>
+                                  {medico.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Especialidade</label>
+                          <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione a especialidade" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {especialidades.map((especialidade) => (
+                                <SelectItem key={especialidade.id} value={especialidade.id}>
+                                  {especialidade.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Procedimento</label>
+                          <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Selecione o procedimento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {procedimentos.map((procedimento) => (
+                                <SelectItem key={procedimento.id} value={procedimento.id}>
+                                  {procedimento.nome}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Orçamento */}
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Orçamento</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Valor Orçado (R$)</label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={formData.valor_orcado}
+                            onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
+                            placeholder="0,00"
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Status do Orçamento</label>
+                          <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Status do orçamento" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Total">Total</SelectItem>
+                              <SelectItem value="Parcial">Parcial</SelectItem>
+                              <SelectItem value="Não">Não</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {formData.orcamento_fechado === 'Parcial' && (
+                          <div className="space-y-2">
+                            <label className="text-sm font-medium">Valor Fechado Parcial (R$)</label>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={formData.valor_fechado_parcial}
+                              onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
+                              placeholder="0,00"
+                              className="w-full"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Follow-ups */}
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Follow-ups</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[1, 2, 3].map((num) => (
+                          <div key={num} className="border rounded-lg p-4 space-y-3">
+                            <div className="font-medium text-sm">Follow-up {num}</div>
+                            <div className="flex items-center space-x-2">
+                              <Checkbox
+                                checked={formData[`followup${num}_realizado`]}
+                                onCheckedChange={(checked) => 
+                                  setFormData({...formData, [`followup${num}_realizado`]: checked})
+                                }
+                              />
+                              <label className="text-sm">Realizado</label>
+                            </div>
+                            {formData[`followup${num}_realizado`] && (
+                              <Input
+                                type="date"
+                                value={formData[`followup${num}_data`]}
+                                onChange={(e) => setFormData({...formData, [`followup${num}_data`]: e.target.value})}
+                                className="w-full"
+                              />
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Observações */}
+                  <Card>
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-lg">Observações</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Observações Gerais</label>
+                        <Textarea
+                          value={formData.observacao_geral}
+                          onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
+                          rows={4}
+                          className="w-full resize-none"
+                        />
+                      </div>
                     </CardContent>
                   </Card>
 
@@ -715,150 +862,5 @@ export default function Leads() {
         </CardContent>
       </Card>
     </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Médico</label>
-                          <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecione o médico" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {medicos.map((medico) => (
-                                <SelectItem key={medico.id} value={medico.id}>
-                                  {medico.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Especialidade</label>
-                          <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecione a especialidade" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {especialidades.map((especialidade) => (
-                                <SelectItem key={especialidade.id} value={especialidade.id}>
-                                  {especialidade.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Procedimento</label>
-                          <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Selecione o procedimento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {procedimentos.map((procedimento) => (
-                                <SelectItem key={procedimento.id} value={procedimento.id}>
-                                  {procedimento.nome}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Orçamento */}
-                  <Card>
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-lg">Orçamento</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Valor Orçado (R$)</label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={formData.valor_orcado}
-                            onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
-                            placeholder="0,00"
-                            className="w-full"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium">Status do Orçamento</label>
-                          <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
-                            <SelectTrigger className="w-full">
-                              <SelectValue placeholder="Status do orçamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Total">Total</SelectItem>
-                              <SelectItem value="Parcial">Parcial</SelectItem>
-                              <SelectItem value="Não">Não</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {formData.orcamento_fechado === 'Parcial' && (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium">Valor Fechado Parcial (R$)</label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={formData.valor_fechado_parcial}
-                              onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
-                              placeholder="0,00"
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Follow-ups */}
-                  <Card>
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-lg">Follow-ups</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {[1, 2, 3].map((num) => (
-                          <div key={num} className="border rounded-lg p-4 space-y-3">
-                            <div className="font-medium text-sm">Follow-up {num}</div>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox
-                                checked={formData[`followup${num}_realizado`]}
-                                onCheckedChange={(checked) => 
-                                  setFormData({...formData, [`followup${num}_realizado`]: checked})
-                                }
-                              />
-                              <label className="text-sm">Realizado</label>
-                            </div>
-                            {formData[`followup${num}_realizado`] && (
-                              <Input
-                                type="date"
-                                value={formData[`followup${num}_data`]}
-                                onChange={(e) => setFormData({...formData, [`followup${num}_data`]: e.target.value})}
-                                className="w-full"
-                              />
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Observações */}
-                  <Card>
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-lg">Observações</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Observações Gerais</label>
-                        <Textarea
-                          value={formData.observacao_geral}
-                          onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
-                          rows={4}
-                          className="w-full resize-none"
-                        />
-                      </div
+  )
+}
