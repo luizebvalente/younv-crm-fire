@@ -83,23 +83,44 @@ const Sidebar = ({ isOpen, onClose }) => {
                status === 'CONVERTIDO'
       })
       .reduce((total, lead) => {
+        // Verificar se o orçamento é parcial ou total
+        const statusOrcamento = lead.statusOrcamento || lead.status_orcamento || 'Total'
+        const valorFechadoParcial = lead.valorFechadoParcial || lead.valor_fechado_parcial
         const valorOrcado = lead.valorOrcado || lead.valor_orcado
         
-        if (!valorOrcado) return total
+        let valorParaUsar = 0
         
-        let valor = 0
-        if (typeof valorOrcado === 'string') {
-          // Remover formatação brasileira (R$, pontos, vírgulas)
-          const valorLimpo = valorOrcado
-            .replace(/[R$\s]/g, '')
-            .replace(/\./g, '')
-            .replace(',', '.')
-          valor = parseFloat(valorLimpo) || 0
-        } else if (typeof valorOrcado === 'number') {
-          valor = valorOrcado
+        // Se for orçamento PARCIAL, usar o valor fechado parcial
+        if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial') {
+          if (valorFechadoParcial) {
+            if (typeof valorFechadoParcial === 'string') {
+              // Remover formatação brasileira (R$, pontos, vírgulas)
+              const valorLimpo = valorFechadoParcial
+                .replace(/[R$\s]/g, '')
+                .replace(/\./g, '')
+                .replace(',', '.')
+              valorParaUsar = parseFloat(valorLimpo) || 0
+            } else if (typeof valorFechadoParcial === 'number') {
+              valorParaUsar = valorFechadoParcial
+            }
+          }
+        } else {
+          // Se for orçamento TOTAL, usar o valor orçado
+          if (valorOrcado) {
+            if (typeof valorOrcado === 'string') {
+              // Remover formatação brasileira (R$, pontos, vírgulas)
+              const valorLimpo = valorOrcado
+                .replace(/[R$\s]/g, '')
+                .replace(/\./g, '')
+                .replace(',', '.')
+              valorParaUsar = parseFloat(valorLimpo) || 0
+            } else if (typeof valorOrcado === 'number') {
+              valorParaUsar = valorOrcado
+            }
+          }
         }
         
-        return total + valor
+        return total + valorParaUsar
       }, 0)
 
     return {
