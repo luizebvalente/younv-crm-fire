@@ -650,25 +650,6 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* Alerta de Migração */}
-      {!migrating && (
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <RefreshCw className="h-5 w-5 text-orange-400" />
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-orange-800">
-                Migração de Campos Firebase
-              </h3>
-              <div className="mt-2 text-sm text-orange-700">
-                Se os campos de follow-up e orçamento parcial não estão funcionando, clique em <strong>"Migrar Campos"</strong> para adicionar os campos ausentes diretamente no Firebase.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
