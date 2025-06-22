@@ -1,5 +1,5 @@
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { useState } from 'react'
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import './App.css'
 
 // Context
@@ -20,20 +20,21 @@ import Login from './components/pages/Login'
 
 // Componente principal da aplicação autenticada
 function AuthenticatedApp() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const { user } = useAuth()
 
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <Header user={user} />
+        <Header onMenuClick={() => setSidebarOpen(true)} user={user} />
         
         {/* Page Content */}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100 p-4 lg:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-100">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard" element={<Dashboard />} />
