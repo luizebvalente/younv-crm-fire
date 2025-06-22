@@ -9,14 +9,17 @@ import {
   BarChart3,
   TrendingUp,
   DollarSign,
-  Calendar
+  Calendar,
+  Menu,
+  X
 } from 'lucide-react'
 import { useRealtimeFirestore } from '@/hooks/useFirestore'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 export default function Sidebar() {
   const location = useLocation()
   const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   // Função para verificar se uma data é hoje
   const isToday = (dateString) => {
@@ -192,92 +195,120 @@ export default function Sidebar() {
   }
 
   return (
-        <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
-      {/* Header */}
-      <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
-        <div className="flex items-center justify-center">
-          <img 
-            src="/Younv-Official.png" 
-            alt="Younv" 
-            className="h-12 w-auto"
-          />
-        </div>
-        <div className="text-center">
-          <h1 className="text-xl font-bold">Clinical CRM</h1>
-          <p className="text-sm text-gray-400">v2.0</p>
-        </div>
-      </div>
+    <>
+      {/* Botão Menu Hambúrguer - Visível apenas em mobile */}
+      <button
+        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-900 text-white rounded-md shadow-lg"
+      >
+        {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+      </button>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {navigation.map((item) => {
-          const isActive = location.pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                'flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="h-5 w-5" />
-                <div>
-                  <div>{item.name}</div>
-                  <div className="text-xs text-gray-400">{item.description}</div>
+      {/* Overlay para mobile */}
+      {isMobileMenuOpen && (
+        <div 
+          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={cn(
+        "flex h-screen w-64 flex-col bg-gray-900 text-white transition-transform duration-300 ease-in-out",
+        // Desktop: sempre visível
+        "lg:translate-x-0",
+        // Mobile: controlado pelo estado
+        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
+        // Mobile: posição fixa para sobrepor o conteúdo
+        "lg:relative fixed z-50"
+      )}>
+        {/* Header */}
+        <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
+          <div className="flex items-center justify-center">
+            <img 
+              src="/Younv-Official.png" 
+              alt="Younv" 
+              className="h-12 w-auto"
+            />
+          </div>
+          <div className="text-center">
+            <h1 className="text-xl font-bold">Clinical CRM</h1>
+            <p className="text-sm text-gray-400">v2.0</p>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2">
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setIsMobileMenuOpen(false)} // Fechar menu ao clicar em mobile
+                className={cn(
+                  'flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5" />
+                  <div>
+                    <div>{item.name}</div>
+                    <div className="text-xs text-gray-400">{item.description}</div>
+                  </div>
                 </div>
+                {item.badge && (
+                  <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                    {item.badge}
+                  </span>
+                )}
+              </Link>
+            )
+          })}
+        </nav>
+
+        {/* Resumo Rápido */}
+        <div className="p-4 border-t border-gray-800">
+          <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-blue-400" />
+                <span className="text-sm">Leads Hoje</span>
               </div>
-              {item.badge && (
-                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                  {item.badge}
-                </span>
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+              <span className="text-lg font-bold">{stats.leadsHoje}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-green-400" />
+                <span className="text-sm">Agendamentos</span>
+              </div>
+              <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-yellow-400" />
+                <span className="text-sm">Receita</span>
+              </div>
+              <span className="text-lg font-bold">
+                R$ {formatValue(stats.receitaHoje)}
+              </span>
+            </div>
+          </div>
+        </div>
 
-      {/* Resumo Rápido */}
-      <div className="p-4 border-t border-gray-800">
-        <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-blue-400" />
-              <span className="text-sm">Leads Hoje</span>
-            </div>
-            <span className="text-lg font-bold">{stats.leadsHoje}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-green-400" />
-              <span className="text-sm">Agendamentos</span>
-            </div>
-            <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm">Receita</span>
-            </div>
-            <span className="text-lg font-bold">
-              R$ {formatValue(stats.receitaHoje)}
-            </span>
+        {/* Footer */}
+        <div className="p-4 border-t border-gray-800">
+          <div className="text-center">
+            <p className="text-sm font-medium">Younv Consultoria</p>
+            <p className="text-xs text-gray-400">Sistema de Gestão</p>
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-gray-800">
-        <div className="text-center">
-          <p className="text-sm font-medium">Younv Consultoria</p>
-          <p className="text-xs text-gray-400">Sistema de Gestão</p>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
 
