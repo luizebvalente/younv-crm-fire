@@ -358,9 +358,9 @@ export default function Leads() {
                 Novo Lead
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-7xl max-h-[95vh] overflow-y-auto p-6">
               <DialogHeader>
-                <DialogTitle>{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
+                <DialogTitle className="text-2xl">{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
               </DialogHeader>
               
               {existingPatient && (
@@ -389,13 +389,14 @@ export default function Leads() {
                   <CardHeader>
                     <CardTitle className="text-lg">Dados Pessoais</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Nome do Paciente *</label>
                       <Input
                         value={formData.nome_paciente}
                         onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
                         required
+                        className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -408,6 +409,7 @@ export default function Leads() {
                         }}
                         placeholder="(11) 99999-9999"
                         required
+                        className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -417,6 +419,7 @@ export default function Leads() {
                         value={formData.email}
                         onChange={(e) => setFormData({...formData, email: e.target.value})}
                         required
+                        className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
@@ -426,12 +429,13 @@ export default function Leads() {
                         value={formData.data_nascimento}
                         onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
                         required
+                        className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Canal de Contato</label>
                       <Select value={formData.canal_contato} onValueChange={(value) => setFormData({...formData, canal_contato: value})}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder="Selecione o canal" />
                         </SelectTrigger>
                         <SelectContent>
@@ -446,7 +450,7 @@ export default function Leads() {
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Tipo de Visita</label>
                       <Select value={formData.tipo_visita} onValueChange={(value) => setFormData({...formData, tipo_visita: value})}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder="Tipo de visita" />
                         </SelectTrigger>
                         <SelectContent>
@@ -455,10 +459,10 @@ export default function Leads() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2 lg:col-span-2">
                       <label className="text-sm font-medium">Status</label>
                       <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -480,20 +484,21 @@ export default function Leads() {
                   <CardHeader>
                     <CardTitle className="text-lg">Solicitação e Atendimento</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Solicitação do Paciente</label>
                       <Textarea
                         value={formData.solicitacao_paciente}
                         onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
                         rows={3}
+                        className="resize-none"
                       />
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Médico</label>
                         <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11">
                             <SelectValue placeholder="Selecione o médico" />
                           </SelectTrigger>
                           <SelectContent>
@@ -508,7 +513,7 @@ export default function Leads() {
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Especialidade</label>
                         <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11">
                             <SelectValue placeholder="Selecione a especialidade" />
                           </SelectTrigger>
                           <SelectContent>
@@ -523,7 +528,7 @@ export default function Leads() {
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Procedimento</label>
                         <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11">
                             <SelectValue placeholder="Selecione o procedimento" />
                           </SelectTrigger>
                           <SelectContent>
@@ -544,7 +549,7 @@ export default function Leads() {
                   <CardHeader>
                     <CardTitle className="text-lg">Orçamento</CardTitle>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Valor Orçado (R$)</label>
                       <Input
@@ -553,12 +558,13 @@ export default function Leads() {
                         value={formData.valor_orcado}
                         onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
                         placeholder="0,00"
+                        className="h-11"
                       />
                     </div>
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Status do Orçamento</label>
                       <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
-                        <SelectTrigger>
+                        <SelectTrigger className="h-11">
                           <SelectValue placeholder="Status do orçamento" />
                         </SelectTrigger>
                         <SelectContent>
@@ -577,6 +583,7 @@ export default function Leads() {
                           value={formData.valor_fechado_parcial}
                           onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
                           placeholder="0,00"
+                          className="h-11"
                         />
                       </div>
                     )}
