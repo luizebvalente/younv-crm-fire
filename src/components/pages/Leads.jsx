@@ -358,7 +358,7 @@ export default function Leads() {
                 Novo Lead
               </Button>
             </DialogTrigger>
-            <DialogContent className="!max-w-[95vw] max-h-[90vh] overflow-y-auto p-6 w-full">
+            <DialogContent className="!max-w-[85vw] max-h-[80vh] overflow-y-auto p-6 w-full">
               <DialogHeader>
                 <DialogTitle className="text-xl mb-4">{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
               </DialogHeader>
