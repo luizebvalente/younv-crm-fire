@@ -39,6 +39,14 @@ class FirebaseDataService {
         tipoVisita: data.tipo_visita,
         valorOrcado: data.valor_orcado,
         orcamentoFechado: data.orcamento_fechado,
+        // NOVOS CAMPOS PARA MIGRAÇÃO
+        valorFechadoParcial: data.valor_fechado_parcial || 0,
+        followup1Realizado: data.followup1_realizado || false,
+        followup1Data: data.followup1_data || '',
+        followup2Realizado: data.followup2_realizado || false,
+        followup2Data: data.followup2_data || '',
+        followup3Realizado: data.followup3_realizado || false,
+        followup3Data: data.followup3_data || '',
         observacaoGeral: data.observacao_geral,
         perfilComportamentalDisc: data.perfil_comportamental_disc,
         status: data.status,
@@ -70,6 +78,14 @@ class FirebaseDataService {
         tipo_visita: data.tipoVisita || data.tipo_visita,
         valor_orcado: data.valorOrcado || data.valor_orcado,
         orcamento_fechado: data.orcamentoFechado || data.orcamento_fechado,
+        // NOVOS CAMPOS TRANSFORMADOS
+        valor_fechado_parcial: data.valorFechadoParcial || data.valor_fechado_parcial || 0,
+        followup1_realizado: data.followup1Realizado || data.followup1_realizado || false,
+        followup1_data: data.followup1Data || data.followup1_data || '',
+        followup2_realizado: data.followup2Realizado || data.followup2_realizado || false,
+        followup2_data: data.followup2Data || data.followup2_data || '',
+        followup3_realizado: data.followup3Realizado || data.followup3_realizado || false,
+        followup3_data: data.followup3Data || data.followup3_data || '',
         observacao_geral: data.observacaoGeral || data.observacao_geral,
         perfil_comportamental_disc: data.perfilComportamentalDisc || data.perfil_comportamental_disc,
         status: data.status,
@@ -79,6 +95,126 @@ class FirebaseDataService {
       }
     }
     return data
+  }
+
+  // NOVA FUNÇÃO: Migração de campos ausentes nos leads
+  async migrateLeadsFields() {
+    if (!this.useFirebase) {
+      console.log('Migração só funciona com Firebase ativo')
+      return { success: false, message: 'Firebase não está ativo' }
+    }
+
+    try {
+      console.log('🚀 Iniciando migração de campos dos leads...')
+      
+      // Buscar todos os leads diretamente do Firestore (sem transformação)
+      const rawLeads = await firestoreService.getAll('leads')
+      console.log(`📊 Encontrados ${rawLeads.length} leads para análise`)
+      
+      let migratedCount = 0
+      const errors = []
+      
+      for (const lead of rawLeads) {
+        try {
+          console.log(`🔍 Analisando lead: ${lead.nomePackiente || lead.nome_paciente} (ID: ${lead.id})`)
+          
+          // Verificar se os novos campos existem
+          const needsMigration = (
+            lead.valorFechadoParcial === undefined ||
+            lead.followup1Realizado === undefined ||
+            lead.followup1Data === undefined ||
+            lead.followup2Realizado === undefined ||
+            lead.followup2Data === undefined ||
+            lead.followup3Realizado === undefined ||
+            lead.followup3Data === undefined
+          )
+          
+          if (needsMigration) {
+            console.log(`⚡ Migrando lead: ${lead.nomePackiente || lead.nome_paciente}`)
+            
+            // Criar objeto com TODOS os campos (existentes + novos)
+            const updatedLead = {
+              // Campos existentes (preservar)
+              nomePackiente: lead.nomePackiente || lead.nome_paciente || '',
+              telefone: lead.telefone || '',
+              dataNascimento: lead.dataNascimento || lead.data_nascimento || '',
+              email: lead.email || '',
+              canalContato: lead.canalContato || lead.canal_contato || '',
+              solicitacaoPaciente: lead.solicitacaoPaciente || lead.solicitacao_paciente || '',
+              medicoAgendadoId: lead.medicoAgendadoId || lead.medico_agendado_id || '',
+              especialidadeId: lead.especialidadeId || lead.especialidade_id || '',
+              procedimentoAgendadoId: lead.procedimentoAgendadoId || lead.procedimento_agendado_id || '',
+              agendado: lead.agendado || false,
+              motivoNaoAgendamento: lead.motivoNaoAgendamento || lead.motivo_nao_agendamento || '',
+              outrosProfissionaisAgendados: lead.outrosProfissionaisAgendados || lead.outros_profissionais_agendados || false,
+              quaisProfissionais: lead.quaisProfissionais || lead.quais_profissionais || '',
+              pagouReserva: lead.pagouReserva || lead.pagou_reserva || false,
+              tipoVisita: lead.tipoVisita || lead.tipo_visita || '',
+              valorOrcado: lead.valorOrcado || lead.valor_orcado || 0,
+              orcamentoFechado: lead.orcamentoFechado || lead.orcamento_fechado || '',
+              observacaoGeral: lead.observacaoGeral || lead.observacao_geral || '',
+              perfilComportamentalDisc: lead.perfilComportamentalDisc || lead.perfil_comportamental_disc || '',
+              status: lead.status || 'Lead',
+              dataRegistroContato: lead.dataRegistroContato || lead.data_registro_contato || new Date().toISOString(),
+              
+              // NOVOS CAMPOS - GARANTIR EXISTÊNCIA
+              valorFechadoParcial: lead.valorFechadoParcial || lead.valor_fechado_parcial || 0,
+              followup1Realizado: lead.followup1Realizado || lead.followup1_realizado || false,
+              followup1Data: lead.followup1Data || lead.followup1_data || '',
+              followup2Realizado: lead.followup2Realizado || lead.followup2_realizado || false,
+              followup2Data: lead.followup2Data || lead.followup2_data || '',
+              followup3Realizado: lead.followup3Realizado || lead.followup3_realizado || false,
+              followup3Data: lead.followup3Data || lead.followup3_data || ''
+            }
+            
+            // Atualizar no Firestore
+            await firestoreService.update('leads', lead.id, updatedLead)
+            migratedCount++
+            
+            console.log(`✅ Lead ${lead.nomePackiente || lead.nome_paciente} migrado com sucesso`)
+          } else {
+            console.log(`⏭️ Lead ${lead.nomePackiente || lead.nome_paciente} já possui todos os campos`)
+          }
+          
+        } catch (leadError) {
+          console.error(`❌ Erro ao migrar lead ${lead.id}:`, leadError)
+          errors.push({
+            leadId: lead.id,
+            leadName: lead.nomePackiente || lead.nome_paciente,
+            error: leadError.message
+          })
+        }
+      }
+      
+      console.log(`🎉 Migração concluída!`)
+      console.log(`📈 Estatísticas:`)
+      console.log(`   - Total de leads: ${rawLeads.length}`)
+      console.log(`   - Leads migrados: ${migratedCount}`)
+      console.log(`   - Erros: ${errors.length}`)
+      
+      if (errors.length > 0) {
+        console.log(`⚠️ Erros encontrados:`, errors)
+      }
+      
+      return {
+        success: true,
+        message: `Migração concluída! ${migratedCount} leads foram atualizados.`,
+        stats: {
+          total: rawLeads.length,
+          migrated: migratedCount,
+          errors: errors.length
+        },
+        errors
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro durante a migração:', error)
+      return {
+        success: false,
+        message: `Erro durante a migração: ${error.message}`,
+        error
+      }
+    }
   }
 
   // Inicializar dados padrão
