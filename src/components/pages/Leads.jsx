@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -18,6 +18,7 @@ export default function Leads() {
   const [procedimentos, setProcedimentos] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [migrating, setMigrating] = useState(false)
   const [error, setError] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingItem, setEditingItem] = useState(null)
@@ -56,43 +57,35 @@ export default function Leads() {
     followup3_data: ''
   })
 
-  // Função para migrar leads existentes adicionando campos ausentes
-  const migrateExistingLeads = async (leadsData) => {
-    const fieldsToAdd = {
-      valor_fechado_parcial: 0,
-      followup1_realizado: false,
-      followup1_data: '',
-      followup2_realizado: false,
-      followup2_data: '',
-      followup3_realizado: false,
-      followup3_data: ''
-    }
-
-    const leadsToUpdate = leadsData.filter(lead => {
-      return Object.keys(fieldsToAdd).some(field => !(field in lead))
-    })
-
-    if (leadsToUpdate.length > 0) {
-      console.log(`Migrando ${leadsToUpdate.length} leads com campos ausentes...`)
+  // Função para migração usando o serviço centralizado
+  const handleFieldMigration = async () => {
+    try {
+      setMigrating(true)
+      setError(null)
       
-      for (const lead of leadsToUpdate) {
-        const updatedData = { ...lead }
+      console.log('🚀 Iniciando migração via serviço...')
+      
+      // Usar a função de migração do serviço
+      const result = await firebaseDataService.migrateLeadsFields()
+      
+      if (result.success) {
+        console.log('✅ Migração concluída:', result)
         
-        // Adicionar campos ausentes com valores padrão
-        Object.keys(fieldsToAdd).forEach(field => {
-          if (!(field in updatedData)) {
-            updatedData[field] = fieldsToAdd[field]
-          }
-        })
-
-        try {
-          await firebaseDataService.update('leads', lead.id, updatedData)
-        } catch (err) {
-          console.error(`Erro ao migrar lead ${lead.id}:`, err)
-        }
+        // Recarregar dados
+        await loadData()
+        
+        // Mostrar resultado para o usuário
+        alert(`${result.message}\n\nEstatísticas:\n- Total: ${result.stats.total}\n- Migrados: ${result.stats.migrated}\n- Erros: ${result.stats.errors}`)
+      } else {
+        console.error('❌ Erro na migração:', result)
+        setError(result.message)
       }
       
-      console.log('Migração concluída!')
+    } catch (err) {
+      console.error('❌ Erro durante a migração:', err)
+      setError(`Erro durante a migração: ${err.message}`)
+    } finally {
+      setMigrating(false)
     }
   }
 
@@ -112,13 +105,7 @@ export default function Leads() {
         firebaseDataService.getAll('procedimentos')
       ])
       
-      // Migrar leads existentes se necessário
-      await migrateExistingLeads(leadsData)
-      
-      // Recarregar dados após migração
-      const updatedLeadsData = await firebaseDataService.getAll('leads')
-      
-      setLeads(updatedLeadsData)
+      setLeads(leadsData)
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
       setProcedimentos(procedimentosData)
@@ -188,7 +175,7 @@ export default function Leads() {
         observacao_geral: formData.observacao_geral || '',
         perfil_comportamental_disc: formData.perfil_comportamental_disc || '',
         status: formData.status || 'Lead',
-        // Follow-ups - GARANTIR VALORES PADRÃO
+        // Follow-ups - GARANTIR VALORES
         followup1_realizado: Boolean(formData.followup1_realizado),
         followup1_data: formData.followup1_data || '',
         followup2_realizado: Boolean(formData.followup2_realizado),
@@ -197,6 +184,8 @@ export default function Leads() {
         followup3_data: formData.followup3_data || '',
         data_registro_contato: editingItem ? editingItem.data_registro_contato : new Date().toISOString()
       }
+      
+      console.log('Dados a serem salvos:', dataToSave)
       
       if (editingItem) {
         await firebaseDataService.update('leads', editingItem.id, dataToSave)
@@ -215,6 +204,7 @@ export default function Leads() {
   }
 
   const handleEdit = (item) => {
+    console.log('Editando item:', item)
     setEditingItem(item)
     setFormData({
       nome_paciente: item.nome_paciente || '',
@@ -238,12 +228,12 @@ export default function Leads() {
       observacao_geral: item.observacao_geral || '',
       perfil_comportamental_disc: item.perfil_comportamental_disc || '',
       status: item.status || 'Lead',
-      // Follow-ups - VALORES PADRÃO SEGUROS
-      followup1_realizado: Boolean(item.followup1_realizado || false),
+      // Follow-ups - VALORES SEGUROS
+      followup1_realizado: Boolean(item.followup1_realizado),
       followup1_data: item.followup1_data || '',
-      followup2_realizado: Boolean(item.followup2_realizado || false),
+      followup2_realizado: Boolean(item.followup2_realizado),
       followup2_data: item.followup2_data || '',
-      followup3_realizado: Boolean(item.followup3_realizado || false),
+      followup3_realizado: Boolean(item.followup3_realizado),
       followup3_data: item.followup3_data || ''
     })
     setIsDialogOpen(true)
@@ -342,303 +332,342 @@ export default function Leads() {
           <h1 className="text-3xl font-bold tracking-tight">Leads e Pacientes</h1>
           <p className="text-muted-foreground">Gerencie leads e acompanhe conversões</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => resetForm()}>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Lead
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
-            </DialogHeader>
-            
-            {existingPatient && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <Users className="h-5 w-5 text-yellow-400" />
-                  </div>
-                  <div className="ml-3">
-                    <h3 className="text-sm font-medium text-yellow-800">
-                      Paciente Recorrente Detectado!
-                    </h3>
-                    <div className="mt-2 text-sm text-yellow-700">
-                      Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
-                      <br />
-                      Status anterior: {existingPatient.status}
-                    </div>
-                  </div>
-                </div>
-              </div>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleFieldMigration} 
+            disabled={migrating}
+            variant="outline"
+            className="bg-orange-50 border-orange-200 text-orange-800 hover:bg-orange-100"
+          >
+            {migrating ? (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                Migrando...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Migrar Campos
+              </>
             )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Dados Pessoais */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Dados Pessoais</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Nome do Paciente *</label>
-                    <Input
-                      value={formData.nome_paciente}
-                      onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Telefone *</label>
-                    <Input
-                      value={formData.telefone}
-                      onChange={(e) => {
-                        setFormData({...formData, telefone: e.target.value})
-                        checkExistingPatient(e.target.value)
-                      }}
-                      placeholder="(11) 99999-9999"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">E-mail *</label>
-                    <Input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Data de Nascimento *</label>
-                    <Input
-                      type="date"
-                      value={formData.data_nascimento}
-                      onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Canal de Contato</label>
-                    <Select value={formData.canal_contato} onValueChange={(value) => setFormData({...formData, canal_contato: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione o canal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Instagram">Instagram</SelectItem>
-                        <SelectItem value="Google">Google</SelectItem>
-                        <SelectItem value="Facebook">Facebook</SelectItem>
-                        <SelectItem value="Indicação">Indicação</SelectItem>
-                        <SelectItem value="Outros">Outros</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Tipo de Visita</label>
-                    <Select value={formData.tipo_visita} onValueChange={(value) => setFormData({...formData, tipo_visita: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Tipo de visita" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Primeira Visita">Primeira Visita</SelectItem>
-                        <SelectItem value="Recorrente">Recorrente</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status</label>
-                    <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Lead">Lead</SelectItem>
-                        <SelectItem value="Convertido">Convertido</SelectItem>
-                        <SelectItem value="Perdido">Perdido</SelectItem>
-                        <SelectItem value="Agendado">Agendado</SelectItem>
-                        <SelectItem value="Não Agendou">Não Agendou</SelectItem>
-                        <SelectItem value="Confirmado">Confirmado</SelectItem>
-                        <SelectItem value="Faltou">Faltou</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Solicitação e Atendimento */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Solicitação e Atendimento</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Solicitação do Paciente</label>
-                    <Textarea
-                      value={formData.solicitacao_paciente}
-                      onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Médico</label>
-                      <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o médico" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {medicos.map((medico) => (
-                            <SelectItem key={medico.id} value={medico.id}>
-                              {medico.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => resetForm()}>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Lead
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
+              </DialogHeader>
+              
+              {existingPatient && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <Users className="h-5 w-5 text-yellow-400" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Especialidade</label>
-                      <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione a especialidade" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {especialidades.map((especialidade) => (
-                            <SelectItem key={especialidade.id} value={especialidade.id}>
-                              {especialidade.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Procedimento</label>
-                      <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecione o procedimento" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {procedimentos.map((procedimento) => (
-                            <SelectItem key={procedimento.id} value={procedimento.id}>
-                              {procedimento.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Orçamento */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Orçamento</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Valor Orçado (R$)</label>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      value={formData.valor_orcado}
-                      onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Status do Orçamento</label>
-                    <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Status do orçamento" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Total">Total</SelectItem>
-                        <SelectItem value="Parcial">Parcial</SelectItem>
-                        <SelectItem value="Não">Não</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  {formData.orcamento_fechado === 'Parcial' && (
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Valor Fechado Parcial (R$)</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={formData.valor_fechado_parcial}
-                        onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
-                        placeholder="0,00"
-                      />
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Follow-ups */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Follow-ups</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[1, 2, 3].map((num) => (
-                    <div key={num} className="space-y-3">
-                      <label className="text-sm font-medium">Follow-up {num}</label>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          checked={formData[`followup${num}_realizado`]}
-                          onCheckedChange={(checked) => 
-                            setFormData({...formData, [`followup${num}_realizado`]: checked})
-                          }
-                        />
-                        <label className="text-sm">Realizado</label>
+                    <div className="ml-3">
+                      <h3 className="text-sm font-medium text-yellow-800">
+                        Paciente Recorrente Detectado!
+                      </h3>
+                      <div className="mt-2 text-sm text-yellow-700">
+                        Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
+                        <br />
+                        Status anterior: {existingPatient.status}
                       </div>
-                      {formData[`followup${num}_realizado`] && (
-                        <Input
-                          type="date"
-                          value={formData[`followup${num}_data`]}
-                          onChange={(e) => setFormData({...formData, [`followup${num}_data`]: e.target.value})}
-                        />
-                      )}
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-
-              {/* Observações */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Observações</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Observações Gerais</label>
-                    <Textarea
-                      value={formData.observacao_geral}
-                      onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
-                      rows={4}
-                    />
                   </div>
-                </CardContent>
-              </Card>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-800">{error}</p>
                 </div>
               )}
 
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
-                  Cancelar
-                </Button>
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Salvando...' : editingItem ? 'Atualizar Lead' : 'Criar Lead'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Dados Pessoais */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Dados Pessoais</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Nome do Paciente *</label>
+                      <Input
+                        value={formData.nome_paciente}
+                        onChange={(e) => setFormData({...formData, nome_paciente: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Telefone *</label>
+                      <Input
+                        value={formData.telefone}
+                        onChange={(e) => {
+                          setFormData({...formData, telefone: e.target.value})
+                          checkExistingPatient(e.target.value)
+                        }}
+                        placeholder="(11) 99999-9999"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">E-mail *</label>
+                      <Input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({...formData, email: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Data de Nascimento *</label>
+                      <Input
+                        type="date"
+                        value={formData.data_nascimento}
+                        onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Canal de Contato</label>
+                      <Select value={formData.canal_contato} onValueChange={(value) => setFormData({...formData, canal_contato: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione o canal" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Instagram">Instagram</SelectItem>
+                          <SelectItem value="Google">Google</SelectItem>
+                          <SelectItem value="Facebook">Facebook</SelectItem>
+                          <SelectItem value="Indicação">Indicação</SelectItem>
+                          <SelectItem value="Outros">Outros</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Tipo de Visita</label>
+                      <Select value={formData.tipo_visita} onValueChange={(value) => setFormData({...formData, tipo_visita: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Tipo de visita" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Primeira Visita">Primeira Visita</SelectItem>
+                          <SelectItem value="Recorrente">Recorrente</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status</label>
+                      <Select value={formData.status} onValueChange={(value) => setFormData({...formData, status: value})}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Lead">Lead</SelectItem>
+                          <SelectItem value="Convertido">Convertido</SelectItem>
+                          <SelectItem value="Perdido">Perdido</SelectItem>
+                          <SelectItem value="Agendado">Agendado</SelectItem>
+                          <SelectItem value="Não Agendou">Não Agendou</SelectItem>
+                          <SelectItem value="Confirmado">Confirmado</SelectItem>
+                          <SelectItem value="Faltou">Faltou</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Solicitação e Atendimento */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Solicitação e Atendimento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Solicitação do Paciente</label>
+                      <Textarea
+                        value={formData.solicitacao_paciente}
+                        onChange={(e) => setFormData({...formData, solicitacao_paciente: e.target.value})}
+                        rows={3}
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Médico</label>
+                        <Select value={formData.medico_agendado_id} onValueChange={(value) => setFormData({...formData, medico_agendado_id: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o médico" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {medicos.map((medico) => (
+                              <SelectItem key={medico.id} value={medico.id}>
+                                {medico.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Especialidade</label>
+                        <Select value={formData.especialidade_id} onValueChange={(value) => setFormData({...formData, especialidade_id: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione a especialidade" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {especialidades.map((especialidade) => (
+                              <SelectItem key={especialidade.id} value={especialidade.id}>
+                                {especialidade.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Procedimento</label>
+                        <Select value={formData.procedimento_agendado_id} onValueChange={(value) => setFormData({...formData, procedimento_agendado_id: value})}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione o procedimento" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {procedimentos.map((procedimento) => (
+                              <SelectItem key={procedimento.id} value={procedimento.id}>
+                                {procedimento.nome}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Orçamento */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Orçamento</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Valor Orçado (R$)</label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={formData.valor_orcado}
+                        onChange={(e) => setFormData({...formData, valor_orcado: e.target.value})}
+                        placeholder="0,00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Status do Orçamento</label>
+                      <Select value={formData.orcamento_fechado} onValueChange={(value) => setFormData({...formData, orcamento_fechado: value})}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Status do orçamento" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Total">Total</SelectItem>
+                          <SelectItem value="Parcial">Parcial</SelectItem>
+                          <SelectItem value="Não">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formData.orcamento_fechado === 'Parcial' && (
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Valor Fechado Parcial (R$)</label>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={formData.valor_fechado_parcial}
+                          onChange={(e) => setFormData({...formData, valor_fechado_parcial: e.target.value})}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Follow-ups */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Follow-ups</CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {[1, 2, 3].map((num) => (
+                      <div key={num} className="space-y-3">
+                        <label className="text-sm font-medium">Follow-up {num}</label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={formData[`followup${num}_realizado`]}
+                            onCheckedChange={(checked) => 
+                              setFormData({...formData, [`followup${num}_realizado`]: checked})
+                            }
+                          />
+                          <label className="text-sm">Realizado</label>
+                        </div>
+                        {formData[`followup${num}_realizado`] && (
+                          <Input
+                            type="date"
+                            value={formData[`followup${num}_data`]}
+                            onChange={(e) => setFormData({...formData, [`followup${num}_data`]: e.target.value})}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+
+                {/* Observações */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Observações</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Observações Gerais</label>
+                      <Textarea
+                        value={formData.observacao_geral}
+                        onChange={(e) => setFormData({...formData, observacao_geral: e.target.value})}
+                        rows={4}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p className="text-red-800">{error}</p>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={resetForm}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" disabled={saving}>
+                    {saving ? 'Salvando...' : editingItem ? 'Atualizar Lead' : 'Criar Lead'}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
+
+      {/* Alerta de Migração */}
+      {!migrating && (
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <RefreshCw className="h-5 w-5 text-orange-400" />
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-orange-800">
+                Migração de Campos Firebase
+              </h3>
+              <div className="mt-2 text-sm text-orange-700">
+                Se os campos de follow-up e orçamento parcial não estão funcionando, clique em <strong>"Migrar Campos"</strong> para adicionar os campos ausentes diretamente no Firebase.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
