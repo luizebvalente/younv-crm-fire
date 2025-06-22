@@ -1,52 +1,43 @@
 import { Link, useLocation } from 'react-router-dom'
+import { cn } from '@/lib/utils'
 import { 
   LayoutDashboard, 
-  Users, 
-  Stethoscope, 
-  ClipboardList, 
   UserPlus, 
+  Users, 
+  Activity, 
+  ClipboardList, 
   BarChart3,
-  X,
-  Activity
+  TrendingUp,
+  DollarSign,
+  Calendar
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
-import { useRealtimeFirestore } from '@/hooks/useFirestore'
+import { useFirestore } from '@/hooks/useFirestore'
 import { useMemo } from 'react'
 
-const Sidebar = ({ isOpen, onClose }) => {
+export default function Sidebar() {
   const location = useLocation()
-  
-  // Buscar dados dos leads em tempo real
-  const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads', 'dataRegistroContato')
-  
-  // Função para verificar se uma data é de hoje (mais precisa)
-  const isToday = (date) => {
-    if (!date) return false
+  const { data: leads, loading: leadsLoading } = useFirestore('leads')
+
+  // Função para verificar se uma data é hoje
+  const isToday = (dateString) => {
+    if (!dateString) return false
     
-    const hoje = new Date()
-    const inicioHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 0, 0, 0, 0)
-    const fimHoje = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate(), 23, 59, 59, 999)
-    
-    let dataComparar
-    if (date.seconds) {
-      // Timestamp do Firebase
-      dataComparar = new Date(date.seconds * 1000)
-    } else if (typeof date === 'string') {
-      // String de data
-      dataComparar = new Date(date)
-    } else {
-      // Objeto Date
-      dataComparar = new Date(date)
+    try {
+      const date = new Date(dateString)
+      const today = new Date()
+      
+      return date.getDate() === today.getDate() &&
+             date.getMonth() === today.getMonth() &&
+             date.getFullYear() === today.getFullYear()
+    } catch (error) {
+      console.error('Erro ao verificar data:', error)
+      return false
     }
-    
-    return dataComparar >= inicioHoje && dataComparar <= fimHoje
   }
-  
+
   // Calcular estatísticas em tempo real
   const stats = useMemo(() => {
-    if (leadsLoading || !leads) {
+    if (leadsLoading || !leads || leads.length === 0) {
       return {
         totalLeads: 0,
         leadsHoje: 0,
@@ -73,55 +64,75 @@ const Sidebar = ({ isOpen, onClose }) => {
     }).length
 
     // Receita de hoje: leads registrados hoje que foram convertidos
-    const receitaHoje = leadsHoje
-      .filter(lead => {
-        const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado
-        const status = lead.status || lead.status
-        return orcamentoFechado === true || 
-               status === 'Convertido' || 
-               status === 'convertido' ||
-               status === 'CONVERTIDO'
-      })
-      .reduce((total, lead) => {
-        // Verificar se o orçamento é parcial ou total
-        const statusOrcamento = lead.statusOrcamento || lead.status_orcamento || 'Total'
-        const valorFechadoParcial = lead.valorFechadoParcial || lead.valor_fechado_parcial
-        const valorOrcado = lead.valorOrcado || lead.valor_orcado
-        
-        let valorParaUsar = 0
-        
-        // Se for orçamento PARCIAL, usar o valor fechado parcial
-        if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial') {
-          if (valorFechadoParcial) {
-            if (typeof valorFechadoParcial === 'string') {
-              // Remover formatação brasileira (R$, pontos, vírgulas)
-              const valorLimpo = valorFechadoParcial
-                .replace(/[R$\s]/g, '')
-                .replace(/\./g, '')
-                .replace(',', '.')
-              valorParaUsar = parseFloat(valorLimpo) || 0
-            } else if (typeof valorFechadoParcial === 'number') {
-              valorParaUsar = valorFechadoParcial
-            }
-          }
-        } else {
-          // Se for orçamento TOTAL, usar o valor orçado
-          if (valorOrcado) {
-            if (typeof valorOrcado === 'string') {
-              // Remover formatação brasileira (R$, pontos, vírgulas)
-              const valorLimpo = valorOrcado
-                .replace(/[R$\s]/g, '')
-                .replace(/\./g, '')
-                .replace(',', '.')
-              valorParaUsar = parseFloat(valorLimpo) || 0
-            } else if (typeof valorOrcado === 'number') {
-              valorParaUsar = valorOrcado
-            }
+    const leadsConvertidosHoje = leadsHoje.filter(lead => {
+      const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado
+      const status = lead.status || lead.status
+      return orcamentoFechado === true || 
+             status === 'Convertido' || 
+             status === 'convertido' ||
+             status === 'CONVERTIDO'
+    })
+
+    console.log('=== DEBUG RECEITA ===')
+    console.log('Leads de hoje:', leadsHoje.length)
+    console.log('Leads convertidos de hoje:', leadsConvertidosHoje.length)
+    
+    const receitaHoje = leadsConvertidosHoje.reduce((total, lead) => {
+      console.log('Processando lead:', lead.nomePaciente || lead.nome_paciente)
+      
+      // Verificar se o orçamento é parcial ou total
+      const statusOrcamento = lead.statusOrcamento || lead.status_orcamento || 'Total'
+      const valorFechadoParcial = lead.valorFechadoParcial || lead.valor_fechado_parcial
+      const valorOrcado = lead.valorOrcado || lead.valor_orcado
+      
+      console.log('Status do orçamento:', statusOrcamento)
+      console.log('Valor fechado parcial:', valorFechadoParcial)
+      console.log('Valor orçado:', valorOrcado)
+      
+      let valorParaUsar = 0
+      
+      // Se for orçamento PARCIAL, usar o valor fechado parcial
+      if (statusOrcamento === 'Parcial' || statusOrcamento === 'parcial') {
+        console.log('Usando valor PARCIAL')
+        if (valorFechadoParcial !== undefined && valorFechadoParcial !== null && valorFechadoParcial !== '') {
+          if (typeof valorFechadoParcial === 'string') {
+            // Remover formatação brasileira (R$, pontos, vírgulas)
+            const valorLimpo = valorFechadoParcial
+              .replace(/[R$\s]/g, '')
+              .replace(/\./g, '')
+              .replace(',', '.')
+            valorParaUsar = parseFloat(valorLimpo) || 0
+          } else if (typeof valorFechadoParcial === 'number') {
+            valorParaUsar = valorFechadoParcial
           }
         }
-        
-        return total + valorParaUsar
-      }, 0)
+      } else {
+        // Se for orçamento TOTAL, usar o valor orçado
+        console.log('Usando valor TOTAL')
+        if (valorOrcado !== undefined && valorOrcado !== null && valorOrcado !== '') {
+          if (typeof valorOrcado === 'string') {
+            // Remover formatação brasileira (R$, pontos, vírgulas)
+            const valorLimpo = valorOrcado
+              .replace(/[R$\s]/g, '')
+              .replace(/\./g, '')
+              .replace(',', '.')
+            valorParaUsar = parseFloat(valorLimpo) || 0
+          } else if (typeof valorOrcado === 'number') {
+            valorParaUsar = valorOrcado
+          }
+        }
+      }
+      
+      console.log('Valor para usar:', valorParaUsar)
+      console.log('Total anterior:', total)
+      console.log('Novo total:', total + valorParaUsar)
+      console.log('---')
+      
+      return total + valorParaUsar
+    }, 0)
+
+    console.log('RECEITA FINAL DE HOJE:', receitaHoje)
+    console.log('=== FIM DEBUG ===')
 
     return {
       totalLeads: leads.length,
@@ -169,140 +180,100 @@ const Sidebar = ({ isOpen, onClose }) => {
       href: '/relatorios', 
       icon: BarChart3,
       description: 'Análises'
-    },
+    }
   ]
 
-  // Função para formatar valor monetário
-  const formatarReceita = (valor) => {
-    if (valor === 0) return 'R$ 0'
-    if (valor >= 1000) {
-      return `R$ ${(valor / 1000).toFixed(1)}k`
+  // Função para formatar valores em milhares
+  const formatValue = (value) => {
+    if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}k`
     }
-    return `R$ ${valor.toFixed(0)}`
+    return value.toString()
   }
 
-  // Estatísticas rápidas dinâmicas - APENAS DO DIA ATUAL
-  const quickStats = [
-    { 
-      label: 'Leads Hoje', 
-      value: stats.leadsHoje, 
-      icon: UserPlus 
-    },
-    { 
-      label: 'Agendamentos', 
-      value: stats.agendamentosHoje, 
-      icon: LayoutDashboard 
-    },
-    { 
-      label: 'Receita', 
-      value: formatarReceita(stats.receitaHoje), 
-      icon: BarChart3 
-    },
-  ]
-
   return (
-    <>
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-      
-      {/* Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-slate-800 shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
-        isOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-                <span className="text-slate-800 font-bold text-sm">Y</span>
-              </div>
-              <div>
-                <h1 className="text-white font-semibold text-lg">Clinical CRM</h1>
-                <p className="text-slate-400 text-xs">v2.0</p>
-              </div>
-            </div>
-            {/* Mobile close button */}
-            <Button variant="ghost" size="sm" onClick={onClose} className="lg:hidden text-white hover:bg-slate-700">
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-          
-          {/* Navigation */}
-          <nav className="flex-1 px-4 space-y-1">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={onClose}
-                  className={cn(
-                    "flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 group",
-                    isActive
-                      ? "bg-slate-700 text-white"
-                      : "text-slate-300 hover:bg-slate-700 hover:text-white"
-                  )}
-                >
-                  <div className="flex items-center">
-                    <item.icon className={cn(
-                      "mr-3 h-5 w-5 transition-colors",
-                      isActive ? "text-white" : "text-slate-400 group-hover:text-white"
-                    )} />
-                    <div>
-                      <div className="font-medium">{item.name}</div>
-                      <div className="text-xs text-slate-400 group-hover:text-slate-300">
-                        {item.description}
-                      </div>
-                    </div>
-                  </div>
-                  {item.badge !== undefined && (
-                    <Badge variant="secondary" className="bg-blue-600 text-white text-xs">
-                      {leadsLoading ? '...' : item.badge}
-                    </Badge>
-                  )}
-                </Link>
-              )
-            })}
-          </nav>
+    <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
+      {/* Header */}
+      <div className="flex items-center gap-3 p-6 border-b border-gray-800">
+        <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+          <span className="text-white font-bold text-lg">Y</span>
+        </div>
+        <div>
+          <h1 className="text-xl font-bold">Clinical CRM</h1>
+          <p className="text-sm text-gray-400">v2.0</p>
+        </div>
+      </div>
 
-          {/* Quick Stats */}
-          <div className="px-4 py-4">
-            <h3 className="text-slate-400 text-xs font-semibold uppercase tracking-wider mb-3">
-              Resumo Rápido
-            </h3>
-            <div className="space-y-3">
-              {quickStats.map((stat, index) => (
-                <div key={index} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center">
-                    <stat.icon className="h-4 w-4 text-slate-400 mr-2" />
-                    <span className="text-slate-300">{stat.label}</span>
-                  </div>
-                  <span className="text-white font-medium">
-                    {leadsLoading ? '...' : stat.value}
-                  </span>
+      {/* Navigation */}
+      <nav className="flex-1 p-4 space-y-2">
+        {navigation.map((item) => {
+          const isActive = location.pathname === item.href
+          return (
+            <Link
+              key={item.name}
+              to={item.href}
+              className={cn(
+                'flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5" />
+                <div>
+                  <div>{item.name}</div>
+                  <div className="text-xs text-gray-400">{item.description}</div>
                 </div>
-              ))}
+              </div>
+              {item.badge && (
+                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                  {item.badge}
+                </span>
+              )}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* Resumo Rápido */}
+      <div className="p-4 border-t border-gray-800">
+        <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <UserPlus className="h-4 w-4 text-blue-400" />
+              <span className="text-sm">Leads Hoje</span>
             </div>
+            <span className="text-lg font-bold">{stats.leadsHoje}</span>
           </div>
-          
-          {/* Footer */}
-          <div className="p-4 border-t border-slate-700">
-            <div className="text-xs text-slate-400 text-center">
-              <p className="font-medium text-slate-300">Younv Consultoria</p>
-              <p>Sistema de Gestão</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-green-400" />
+              <span className="text-sm">Agendamentos</span>
             </div>
+            <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-yellow-400" />
+              <span className="text-sm">Receita</span>
+            </div>
+            <span className="text-lg font-bold">
+              R$ {formatValue(stats.receitaHoje)}
+            </span>
           </div>
         </div>
       </div>
-    </>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-gray-800">
+        <div className="text-center">
+          <p className="text-sm font-medium">Younv Consultoria</p>
+          <p className="text-xs text-gray-400">Sistema de Gestão</p>
+        </div>
+      </div>
+    </div>
   )
 }
-
-export default Sidebar
 
