@@ -9,12 +9,13 @@ import {
   BarChart3,
   TrendingUp,
   DollarSign,
-  Calendar
+  Calendar,
+  X
 } from 'lucide-react'
 import { useRealtimeFirestore } from '@/hooks/useFirestore'
 import { useMemo } from 'react'
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const location = useLocation()
   const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads')
 
@@ -191,93 +192,129 @@ export default function Sidebar() {
     return value.toString()
   }
 
+  // Função para lidar com clique em links no mobile
+  const handleLinkClick = () => {
+    // Fechar o sidebar no mobile quando um link for clicado
+    if (window.innerWidth < 1024) {
+      onClose()
+    }
+  }
+
   return (
-        <div className="flex h-screen w-64 flex-col bg-gray-900 text-white">
-      {/* Header */}
-      <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
-        <div className="flex items-center justify-center">
-          <img 
-            src="/Younv-Official.png" 
-            alt="Younv" 
-            className="h-12 w-auto"
-          />
-        </div>
-        <div className="text-center">
-          <h1 className="text-xl font-bold">Clinical CRM</h1>
-          <p className="text-sm text-gray-400">v2.0</p>
-        </div>
-      </div>
+    <>
+      {/* Overlay para mobile */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2">
-        {navigation.map((item) => {
-          const isActive = location.pathname === item.href
-          return (
-            <Link
-              key={item.name}
-              to={item.href}
-              className={cn(
-                'flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-              )}
-            >
-              <div className="flex items-center gap-3">
-                <item.icon className="h-5 w-5" />
-                <div>
-                  <div>{item.name}</div>
-                  <div className="text-xs text-gray-400">{item.description}</div>
+      {/* Sidebar */}
+      <div className={cn(
+        "fixed inset-y-0 left-0 z-50 w-64 bg-gray-900 text-white transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0",
+        isOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex h-full flex-col">
+          {/* Header com botão de fechar no mobile */}
+          <div className="flex flex-col items-center gap-3 p-6 border-b border-gray-800">
+            {/* Botão de fechar no mobile */}
+            <div className="flex w-full justify-between items-center lg:hidden">
+              <div></div> {/* Spacer */}
+              <button
+                onClick={onClose}
+                className="p-2 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex items-center justify-center">
+              <img 
+                src="/Younv-Official.png" 
+                alt="Younv" 
+                className="h-12 w-auto"
+              />
+            </div>
+            <div className="text-center">
+              <h1 className="text-xl font-bold">Clinical CRM</h1>
+              <p className="text-sm text-gray-400">v2.0</p>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 p-4 space-y-2">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.href
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={handleLinkClick}
+                  className={cn(
+                    'flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-colors',
+                    isActive
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                  )}
+                >
+                  <div className="flex items-center gap-3">
+                    <item.icon className="h-5 w-5" />
+                    <div>
+                      <div>{item.name}</div>
+                      <div className="text-xs text-gray-400">{item.description}</div>
+                    </div>
+                  </div>
+                  {item.badge && (
+                    <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              )
+            })}
+          </nav>
+
+          {/* Resumo Rápido */}
+          <div className="p-4 border-t border-gray-800">
+            <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserPlus className="h-4 w-4 text-blue-400" />
+                  <span className="text-sm">Leads Hoje</span>
                 </div>
+                <span className="text-lg font-bold">{stats.leadsHoje}</span>
               </div>
-              {item.badge && (
-                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                  {item.badge}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-green-400" />
+                  <span className="text-sm">Agendamentos</span>
+                </div>
+                <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-yellow-400" />
+                  <span className="text-sm">Receita</span>
+                </div>
+                <span className="text-lg font-bold">
+                  R$ {formatValue(stats.receitaHoje)}
                 </span>
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+              </div>
+            </div>
+          </div>
 
-      {/* Resumo Rápido */}
-      <div className="p-4 border-t border-gray-800">
-        <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-blue-400" />
-              <span className="text-sm">Leads Hoje</span>
+          {/* Footer */}
+          <div className="p-4 border-t border-gray-800">
+            <div className="text-center">
+              <p className="text-sm font-medium">Younv Consultoria</p>
+              <p className="text-xs text-gray-400">Sistema de Gestão</p>
             </div>
-            <span className="text-lg font-bold">{stats.leadsHoje}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-green-400" />
-              <span className="text-sm">Agendamentos</span>
-            </div>
-            <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-yellow-400" />
-              <span className="text-sm">Receita</span>
-            </div>
-            <span className="text-lg font-bold">
-              R$ {formatValue(stats.receitaHoje)}
-            </span>
           </div>
         </div>
       </div>
-
-      {/* Footer */}
-      <div className="p-4 border-t border-gray-800">
-        <div className="text-center">
-          <p className="text-sm font-medium">Younv Consultoria</p>
-          <p className="text-xs text-gray-400">Sistema de Gestão</p>
-        </div>
-      </div>
-    </div>
+    </>
   )
 }
 
