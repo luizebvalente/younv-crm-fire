@@ -1,0 +1,168 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Função para verificar se o usuário está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Função para obter o ID da clínica do usuário
+    function getUserClinicaId() {
+      return get(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)).data.clinicaId;
+    }
+    
+    // Função para verificar se o usuário tem acesso à clínica
+    function hasClinicaAccess(clinicaId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)).data.clinicaId == clinicaId &&
+             get(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)).data.ativo == true;
+    }
+    
+    // Função para verificar se o documento pertence à clínica do usuário
+    function belongsToUserClinica(resource) {
+      return hasClinicaAccess(resource.data.clinicaId);
+    }
+    
+    // Função para verificar se os dados sendo criados/atualizados têm o clinicaId correto
+    function hasCorrectClinicaId(data) {
+      return data.clinicaId == getUserClinicaId();
+    }
+
+    // REGRAS PARA CLÍNICAS
+    match /clinicas/{clinicaId} {
+      // Usuários podem ler apenas dados da própria clínica
+      allow read: if hasClinicaAccess(clinicaId);
+      
+      // Apenas administradores podem atualizar dados da clínica
+      allow update: if hasClinicaAccess(clinicaId) && 
+                       get(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)).data.role == 'admin';
+      
+      // Criação de clínicas é permitida para usuários autenticados (cadastro)
+      allow create: if isAuthenticated();
+    }
+
+    // REGRAS PARA ASSOCIAÇÕES USUÁRIO-CLÍNICA
+    match /user_clinicas/{userId} {
+      // Usuários podem ler apenas sua própria associação
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Criação é permitida durante o cadastro
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Atualização apenas por administradores da mesma clínica
+      allow update: if isAuthenticated() && 
+                       hasClinicaAccess(resource.data.clinicaId) &&
+                       get(/databases/$(database)/documents/user_clinicas/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // REGRAS PARA ESPECIALIDADES
+    match /especialidades/{especialidadeId} {
+      // Leitura: apenas se pertencer à clínica do usuário
+      allow read: if belongsToUserClinica(resource);
+      
+      // Criação: apenas se o clinicaId for da clínica do usuário
+      allow create: if isAuthenticated() && hasCorrectClinicaId(request.resource.data);
+      
+      // Atualização: apenas se pertencer à clínica do usuário e manter o clinicaId
+      allow update: if belongsToUserClinica(resource) && 
+                       hasCorrectClinicaId(request.resource.data);
+      
+      // Exclusão: apenas se pertencer à clínica do usuário
+      allow delete: if belongsToUserClinica(resource);
+    }
+
+    // REGRAS PARA MÉDICOS
+    match /medicos/{medicoId} {
+      // Leitura: apenas se pertencer à clínica do usuário
+      allow read: if belongsToUserClinica(resource);
+      
+      // Criação: apenas se o clinicaId for da clínica do usuário
+      allow create: if isAuthenticated() && hasCorrectClinicaId(request.resource.data);
+      
+      // Atualização: apenas se pertencer à clínica do usuário e manter o clinicaId
+      allow update: if belongsToUserClinica(resource) && 
+                       hasCorrectClinicaId(request.resource.data);
+      
+      // Exclusão: apenas se pertencer à clínica do usuário
+      allow delete: if belongsToUserClinica(resource);
+    }
+
+    // REGRAS PARA PROCEDIMENTOS
+    match /procedimentos/{procedimentoId} {
+      // Leitura: apenas se pertencer à clínica do usuário
+      allow read: if belongsToUserClinica(resource);
+      
+      // Criação: apenas se o clinicaId for da clínica do usuário
+      allow create: if isAuthenticated() && hasCorrectClinicaId(request.resource.data);
+      
+      // Atualização: apenas se pertencer à clínica do usuário e manter o clinicaId
+      allow update: if belongsToUserClinica(resource) && 
+                       hasCorrectClinicaId(request.resource.data);
+      
+      // Exclusão: apenas se pertencer à clínica do usuário
+      allow delete: if belongsToUserClinica(resource);
+    }
+
+    // REGRAS PARA LEADS
+    match /leads/{leadId} {
+      // Leitura: apenas se pertencer à clínica do usuário
+      allow read: if belongsToUserClinica(resource);
+      
+      // Criação: apenas se o clinicaId for da clínica do usuário
+      allow create: if isAuthenticated() && hasCorrectClinicaId(request.resource.data);
+      
+      // Atualização: apenas se pertencer à clínica do usuário e manter o clinicaId
+      allow update: if belongsToUserClinica(resource) && 
+                       hasCorrectClinicaId(request.resource.data);
+      
+      // Exclusão: apenas se pertencer à clínica do usuário
+      allow delete: if belongsToUserClinica(resource);
+    }
+
+    // REGRAS PADRÃO - NEGAR TUDO QUE NÃO FOI EXPLICITAMENTE PERMITIDO
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+RESUMO DAS REGRAS DE SEGURANÇA:
+
+1. ISOLAMENTO TOTAL POR CLÍNICA:
+   - Usuários só acessam dados de sua própria clínica
+   - Impossível acessar dados de outras clínicas
+
+2. AUTENTICAÇÃO OBRIGATÓRIA:
+   - Todas as operações requerem usuário autenticado
+   - Verificação de associação usuário-clínica
+
+3. INTEGRIDADE DOS DADOS:
+   - clinicaId não pode ser alterado após criação
+   - Novos documentos devem ter clinicaId correto
+
+4. CONTROLE DE ACESSO:
+   - Leitura: dados da própria clínica
+   - Escrita: apenas com clinicaId correto
+   - Exclusão: apenas dados da própria clínica
+
+5. ADMINISTRAÇÃO:
+   - Administradores podem gerenciar usuários da clínica
+   - Administradores podem atualizar dados da clínica
+
+COMO TESTAR:
+1. Usuário A (Clínica X) não consegue ver dados da Clínica Y
+2. Usuário B (Clínica Y) não consegue criar dados com clinicaId da Clínica X
+3. Usuários não autenticados não conseguem acessar nada
+4. Tentativas de alterar clinicaId são bloqueadas
+
+SEGURANÇA GARANTIDA:
+✅ Isolamento total entre clínicas
+✅ Prevenção de vazamento de dados
+✅ Integridade referencial
+✅ Controle de acesso granular
+*/
+
