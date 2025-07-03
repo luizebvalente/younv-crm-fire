@@ -404,15 +404,28 @@ export default function Leads() {
                       <div className="space-y-2">
                         <label className="text-sm font-medium">Telefone *</label>
                         <Input
+                          id="telefone"
                           value={formData.telefone}
                           onChange={(e) => {
-                            setFormData({...formData, telefone: e.target.value})
-                            checkExistingPatient(e.target.value)
-                          }}
-                          placeholder="(11) 99999-9999"
-                          required
-                          className="h-10"
-                        />
+                            const numbers = e.target.value.replace(/\D/g, '');
+                            let formatted = '';
+      
+                              if (numbers.length <= 2) {
+                                formatted = numbers;
+                              } else if (numbers.length <= 7) {
+                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
+                              } else if (numbers.length <= 11) {
+                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+                              } else {
+                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+                              }
+      
+                                  setFormData({...formData, telefone: formatted});
+                                }}
+                                placeholder="(XX)XXXXX-XXXX"
+                                maxLength={14}
+                                disabled={saving}
+                              />
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">E-mail *</label>
