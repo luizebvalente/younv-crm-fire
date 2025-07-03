@@ -433,7 +433,6 @@ export default function Leads() {
                           type="email"
                           value={formData.email}
                           onChange={(e) => setFormData({...formData, email: e.target.value})}
-                          required
                           className="h-10"
                         />
                       </div>
@@ -443,7 +442,6 @@ export default function Leads() {
                           type="date"
                           value={formData.data_nascimento}
                           onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
-                          required
                           className="h-10"
                         />
                       </div>
