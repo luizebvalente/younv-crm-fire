@@ -339,7 +339,6 @@ const Leads = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({...formData, email: e.target.value})}
-                    required
                     disabled={saving}
                   />
                 </div>
@@ -350,7 +349,6 @@ const Leads = () => {
                     type="date"
                     value={formData.data_nascimento}
                     onChange={(e) => setFormData({...formData, data_nascimento: e.target.value})}
-                    required
                     disabled={saving}
                   />
                 </div>
