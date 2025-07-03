@@ -144,7 +144,7 @@ export default function Leads() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.nome_paciente || !formData.telefone || !formData.email) {
+    if (!formData.nome_paciente || !formData.telefone ) {
       setError('Por favor, preencha todos os campos obrigatórios.')
       return
     }
