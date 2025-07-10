@@ -118,37 +118,43 @@ export default function Leads() {
   }
 
   const checkExistingPatient = async (telefone) => {
-    if (!telefone || telefone.length < 10) {
-      setExistingPatient(null)
-      return
-    }
-
-    try {
-      const cleanPhone = telefone.replace(/\D/g, '')
-      const existingLead = leads.find(lead => 
-        lead.telefone && lead.telefone.replace(/\D/g, '') === cleanPhone
-      )
-      
-      if (existingLead && (!editingItem || existingLead.id !== editingItem.id)) {
-        setExistingPatient(existingLead)
-        setFormData(prev => ({ ...prev, tipo_visita: 'Recorrente' }))
-      } else {
-        setExistingPatient(null)
-        setFormData(prev => ({ ...prev, tipo_visita: 'Primeira Visita' }))
-      }
-    } catch (err) {
-      console.error('Erro ao verificar paciente existente:', err)
-    }
+  if (!telefone || telefone.length < 10) {
+    setExistingPatient(null)
+    return false // Retorna false se não há duplicação
   }
+
+  try {
+    const cleanPhone = telefone.replace(/\D/g, '')
+    const existingLead = leads.find(lead => 
+      lead.telefone && lead.telefone.replace(/\D/g, '') === cleanPhone
+    )
+    
+    if (existingLead && (!editingItem || existingLead.id !== editingItem.id)) {
+      setExistingPatient(existingLead)
+      setFormData(prev => ({ ...prev, tipo_visita: 'Recorrente' }))
+      return true // Retorna true se há duplicação
+    } else {
+      setExistingPatient(null)
+      setFormData(prev => ({ ...prev, tipo_visita: 'Primeira Visita' }))
+      return false // Retorna false se não há duplicação
+    }
+  } catch (err) {
+    console.error('Erro ao verificar paciente existente:', err)
+    return false
+  }
+}
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     
-    if (!formData.nome_paciente || !formData.telefone ) {
-      setError('Por favor, preencha todos os campos obrigatórios.')
+// NOVA VERIFICAÇÃO: Impedir cadastro duplicado para novos leads
+  if (!editingItem) {
+    const isDuplicate = await checkExistingPatient(formData.telefone)
+    if (isDuplicate) {
+      setError(`Telefone já registrado! Este número pertence ao paciente: ${existingPatient.nome_paciente}. Não é possível cadastrar o mesmo telefone novamente.`)
       return
     }
-
+  }
     try {
       setSaving(true)
       setError(null)
@@ -363,25 +369,47 @@ export default function Leads() {
                 <DialogTitle className="text-xl mb-4">{editingItem ? 'Editar Lead' : 'Novo Lead'}</DialogTitle>
               </DialogHeader>
               
-              {existingPatient && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0">
-                      <Users className="h-5 w-5 text-yellow-400" />
-                    </div>
-                    <div className="ml-3">
-                      <h3 className="text-sm font-medium text-yellow-800">
-                        Paciente Recorrente Detectado!
-                      </h3>
-                      <div className="mt-2 text-sm text-yellow-700">
-                        Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
-                        <br />
-                        Status anterior: {existingPatient.status}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+             {existingPatient && !editingItem && (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <div className="flex items-center">
+      <div className="flex-shrink-0">
+        <Users className="h-5 w-5 text-red-400" />
+      </div>
+      <div className="ml-3">
+        <h3 className="text-sm font-medium text-red-800">
+          Telefone já registrado!
+        </h3>
+        <div className="mt-2 text-sm text-red-700">
+          Este número de telefone já pertence ao paciente: <strong>{existingPatient.nome_paciente}</strong>
+          <br />
+          Status atual: {existingPatient.status}
+          <br />
+          <span className="font-medium">Não é possível cadastrar o mesmo telefone novamente.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{existingPatient && editingItem && (
+  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+    <div className="flex items-center">
+      <div className="flex-shrink-0">
+        <Users className="h-5 w-5 text-yellow-400" />
+      </div>
+      <div className="ml-3">
+        <h3 className="text-sm font-medium text-yellow-800">
+          Paciente Recorrente Detectado!
+        </h3>
+        <div className="mt-2 text-sm text-yellow-700">
+          Este telefone já está cadastrado para: <strong>{existingPatient.nome_paciente}</strong>
+          <br />
+          Status anterior: {existingPatient.status}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Dados Pessoais */}
@@ -401,32 +429,44 @@ export default function Leads() {
                           className="h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">Telefone *</label>
-                        <Input
-                          id="telefone"
-                          value={formData.telefone}
-                          onChange={(e) => {
-                            const numbers = e.target.value.replace(/\D/g, '');
-                            let formatted = '';
+                     <div className="space-y-2">
+  <label className="text-sm font-medium">Telefone *</label>
+  <Input
+    id="telefone"
+    value={formData.telefone}
+    onChange={(e) => {
+      const numbers = e.target.value.replace(/\D/g, '');
+      let formatted = '';
+
+      if (numbers.length <= 2) {
+        formatted = numbers;
+      } else if (numbers.length <= 7) {
+        formatted = `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
+      } else if (numbers.length <= 11) {
+        formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+      } else {
+        formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+      }
+
+      setFormData({...formData, telefone: formatted});
       
-                              if (numbers.length <= 2) {
-                                formatted = numbers;
-                              } else if (numbers.length <= 7) {
-                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2)}`;
-                              } else if (numbers.length <= 11) {
-                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7)}`;
-                              } else {
-                                formatted = `(${numbers.slice(0, 2)})${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-                              }
-      
-                                  setFormData({...formData, telefone: formatted});
-                                }}
-                                placeholder="(XX)XXXXX-XXXX"
-                                maxLength={14}
-                                disabled={saving}
-                              />
-                      </div>
+      // Verificar duplicação em tempo real (apenas para novos leads)
+      if (!editingItem && formatted.length >= 14) {
+        checkExistingPatient(formatted);
+      }
+    }}
+    placeholder="(XX)XXXXX-XXXX"
+    maxLength={14}
+    disabled={saving}
+    className={existingPatient && !editingItem ? "h-10 border-red-300 focus:border-red-500" : "h-10"}
+  />
+  {/* Mostrar aviso visual no campo quando há duplicação */}
+  {existingPatient && !editingItem && (
+    <p className="text-sm text-red-600 mt-1">
+      ⚠️ Este telefone já está cadastrado para: {existingPatient.nome_paciente}
+    </p>
+  )}
+</div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">E-mail *</label>
                         <Input
@@ -670,14 +710,18 @@ export default function Leads() {
                   </div>
                 )}
 
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit" disabled={saving}>
-                    {saving ? 'Salvando...' : editingItem ? 'Atualizar Lead' : 'Criar Lead'}
-                  </Button>
-                </div>
+<div className="flex justify-end space-x-2">
+  <Button type="button" variant="outline" onClick={resetForm}>
+    Cancelar
+  </Button>
+  <Button 
+    type="submit" 
+    disabled={saving || (existingPatient && !editingItem)}
+    className={existingPatient && !editingItem ? "opacity-50 cursor-not-allowed" : ""}
+  >
+    {saving ? 'Salvando...' : editingItem ? 'Atualizar Lead' : 'Criar Lead'}
+  </Button>
+</div>
               </form>
             </DialogContent>
           </Dialog>
