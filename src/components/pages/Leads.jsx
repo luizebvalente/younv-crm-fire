@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -25,6 +25,7 @@ export default function Leads() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [existingPatient, setExistingPatient] = useState(null)
+  const [activeTab, setActiveTab] = useState('leads')
 
   const [formData, setFormData] = useState({
     nome_paciente: '',
@@ -331,32 +332,341 @@ export default function Leads() {
     )
   }
 
+  const handleCreateTag = async () => {
+    if (!tagForm.nome.trim()) return;
+
+    try {
+      setSaving(true)
+      setError(null)
+      
+      await firebaseDataService.createTag(tagForm)
+      await loadData()
+      resetTagForm()
+      alert('✅ Tag criada com sucesso!')
+    } catch (err) {
+      setError('Erro ao criar tag: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdateTag = async () => {
+    if (!tagForm.nome.trim()) return;
+
+    try {
+      setSaving(true)
+      setError(null)
+      
+      await firebaseDataService.updateTag(editingTag.id, tagForm)
+      await loadData()
+      resetTagForm()
+      alert('✅ Tag atualizada com sucesso!')
+    } catch (err) {
+      setError('Erro ao atualizar tag: ' + err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteTag = async (tagId) => {
+    const tag = tags.find(t => t.id === tagId)
+    const leadCount = leads.filter(lead => lead.tags?.includes(tagId)).length
+    
+    const confirmMessage = leadCount > 0 
+      ? `Tem certeza que deseja excluir a tag "${tag.nome}"?\n\nEla será removida de ${leadCount} leads.`
+      : `Tem certeza que deseja excluir a tag "${tag.nome}"?`
+    
+    if (confirm(confirmMessage)) {
+      try {
+        setSaving(true)
+        setError(null)
+        
+        await firebaseDataService.deleteTag(tagId)
+        await loadData()
+        alert('✅ Tag excluída com sucesso!')
+      } catch (err) {
+        setError('Erro ao excluir tag: ' + err.message)
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
+
+  const openEditTagDialog = (tag) => {
+    setEditingTag(tag)
+    setTagForm({
+      nome: tag.nome,
+      cor: tag.cor,
+      categoria: tag.categoria
+    })
+    setIsTagDialogOpen(true)
+  }
+
+  const resetTagForm = () => {
+    setTagForm({
+      nome: '',
+      cor: '#3b82f6',
+      categoria: 'Procedimento'
+    })
+    setEditingTag(null)
+    setIsTagDialogOpen(false)
+  }
+
+  // COMPONENTE PARA GERENCIAR TAGS
+  const TagsManagementTab = () => {
+    const cores = [
+      '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+      '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+      '#8b5cf6', '#a855f7', '#c026d3', '#ec4899', '#f43f5e'
+    ]
+
+    const categorias = ['Procedimento', 'Especialidade', 'Prioridade', 'Tipo Cliente', 'Condição', 'Outros']
+
+    return (
+      <div className="space-y-6">
+        {/* Header da aba Tags */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-semibold">Gerenciar Tags</h2>
+            <p className="text-muted-foreground">Organize e gerencie as tags do sistema</p>
+          </div>
+          <Button onClick={() => setIsTagDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Nova Tag
+          </Button>
+        </div>
+
+        {/* Estatísticas das Tags */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total de Tags</CardTitle>
+              <Tag className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{tags.length}</div>
+            </CardContent>
+          </Card>
+
+          {categorias.slice(0, 3).map(categoria => {
+            const count = tags.filter(tag => tag.categoria === categoria).length
+            return (
+              <Card key={categoria}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">{categoria}</CardTitle>
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{count}</div>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+
+        {/* Tags por Categoria */}
+        {categorias.map(categoria => {
+          const tagsCategoria = tags.filter(tag => tag.categoria === categoria)
+          if (tagsCategoria.length === 0) return null
+
+          return (
+            <Card key={categoria}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5" />
+                  {categoria} ({tagsCategoria.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tagsCategoria.map(tag => {
+                    const leadCount = leads.filter(lead => lead.tags?.includes(tag.id)).length
+                    
+                    return (
+                      <div key={tag.id} className="bg-gray-50 rounded-lg border p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <span
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm font-medium"
+                            style={{ backgroundColor: tag.cor }}
+                          >
+                            <Tag className="h-4 w-4" />
+                            {tag.nome}
+                          </span>
+                          
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => openEditTagDialog(tag)}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeleteTag(tag.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="text-sm text-gray-600">
+                          <span className="font-medium">{leadCount}</span> leads usando esta tag
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+
+        {tags.length === 0 && (
+          <Card>
+            <CardContent className="text-center py-12">
+              <Tag className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhuma tag criada</h3>
+              <p className="text-gray-600 mb-4">Comece criando sua primeira tag para organizar os leads</p>
+              <Button onClick={() => setIsTagDialogOpen(true)}>
+                Criar primeira tag
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Dialog para Criar/Editar Tag */}
+        {isTagDialogOpen && (
+          <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{editingTag ? 'Editar Tag' : 'Nova Tag'}</DialogTitle>
+              </DialogHeader>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Nome da Tag *</label>
+                  <Input
+                    value={tagForm.nome}
+                    onChange={(e) => setTagForm({...tagForm, nome: e.target.value})}
+                    placeholder="Ex: Flacidez, Botox, Urgente..."
+                    maxLength={20}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Categoria</label>
+                  <Select 
+                    value={tagForm.categoria} 
+                    onValueChange={(value) => setTagForm({...tagForm, categoria: value})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categorias.map(cat => (
+                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Cor</label>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {cores.map(cor => (
+                      <button
+                        key={cor}
+                        type="button"
+                        onClick={() => setTagForm({...tagForm, cor})}
+                        className={`w-8 h-8 rounded-full border-2 transition-all ${
+                          tagForm.cor === cor ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{ backgroundColor: cor }}
+                      />
+                    ))}
+                  </div>
+                  <Input
+                    type="color"
+                    value={tagForm.cor}
+                    onChange={(e) => setTagForm({...tagForm, cor: e.target.value})}
+                    className="h-10"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Preview</label>
+                  <div 
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm font-medium"
+                    style={{ backgroundColor: tagForm.cor }}
+                  >
+                    <Tag className="h-4 w-4" />
+                    {tagForm.nome || 'Nome da Tag'}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  onClick={resetTagForm}
+                  disabled={saving}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  onClick={editingTag ? handleUpdateTag : handleCreateTag}
+                  disabled={!tagForm.nome.trim() || saving}
+                >
+                  {saving ? (editingTag ? 'Salvando...' : 'Criando...') : (editingTag ? 'Salvar' : 'Criar')}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    )
+  }
+
+
   return (
-    <div className="space-y-6">
+
+   <div className="space-y-6">
+      {/* Header com Navegação por Abas */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Leads e Pacientes</h1>
-          <p className="text-muted-foreground">Gerencie leads e acompanhe conversões</p>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {activeTab === 'leads' ? 'Leads e Pacientes' : 'Gerenciamento de Tags'}
+          </h1>
+          <p className="text-muted-foreground">
+            {activeTab === 'leads' 
+              ? 'Gerencie leads e acompanhe conversões' 
+              : 'Organize e gerencie as tags do sistema'
+            }
+          </p>
         </div>
+
         <div className="flex gap-2">
-          <Button 
-            onClick={handleFieldMigration} 
-            disabled={migrating}
-            variant="outline"
-            className="bg-orange-50 border-orange-200 text-orange-800 hover:bg-orange-100"
+          <Button
+            variant={activeTab === 'leads' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('leads')}
           >
-            {migrating ? (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                Migrando...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Migrar Campos
-              </>
-            )}
+            <Users className="mr-2 h-4 w-4" />
+            Leads ({leads.length})
           </Button>
+          <Button
+            variant={activeTab === 'tags' ? 'default' : 'outline'}
+            onClick={() => setActiveTab('tags')}
+          >
+            <Tag className="mr-2 h-4 w-4" />
+            Tags ({tags.length})
+          </Button>
+        </div>
+      </div>
+            {/* Conteúdo das Abas */}
+      {activeTab === 'leads' && (
+        <div className="space-y-6">
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button onClick={() => resetForm()}>
@@ -911,6 +1221,10 @@ export default function Leads() {
         </CardContent>
       </Card>
     </div>
+  )}
+      {activeTab === 'tags' && (
+        <TagsManagementTab />
+      )}
+    </div>
   )
 }
-
