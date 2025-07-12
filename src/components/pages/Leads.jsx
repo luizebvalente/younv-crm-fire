@@ -503,7 +503,7 @@ export default function Leads() {
 
   const getTagById = (tagId) => tags.find(tag => tag.id === tagId)
 
-  // COMPONENTE PARA GERENCIAR TAGS
+  // COMPONENTE PARA GERENCIAR TAGS - AGORA DENTRO DO COMPONENTE PRINCIPAL
   const TagsManagementTab = () => {
     const cores = [
       '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
@@ -655,8 +655,9 @@ export default function Leads() {
             </CardContent>
           </Card>
         )}
-
-   
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -1426,99 +1427,98 @@ export default function Leads() {
       {activeTab === 'tags' && (
         <TagsManagementTab />
       )}
-           {/* Dialog para Criar/Editar Tag */}
-        {isTagDialogOpen && (
-          <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{editingTag ? 'Editar Tag' : 'Nova Tag'}</DialogTitle>
-              </DialogHeader>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Nome da Tag *</label>
-                  <Input
-                    value={tagForm.nome}
-                    onChange={(e) => setTagForm({...tagForm, nome: e.target.value})}
-                    placeholder="Ex: Flacidez, Botox, Urgente..."
-                    maxLength={20}
+
+      {/* Dialog para Criar/Editar Tag */}
+      <Dialog open={isTagDialogOpen} onOpenChange={setIsTagDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingTag ? 'Editar Tag' : 'Nova Tag'}</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Nome da Tag *</label>
+              <Input
+                value={tagForm.nome}
+                onChange={(e) => setTagForm({...tagForm, nome: e.target.value})}
+                placeholder="Ex: Flacidez, Botox, Urgente..."
+                maxLength={20}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Categoria</label>
+              <Select 
+                value={tagForm.categoria} 
+                onValueChange={(value) => setTagForm({...tagForm, categoria: value})}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {['Procedimento', 'Especialidade', 'Prioridade', 'Tipo Cliente', 'Condição', 'Outros'].map(cat => (
+                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cor</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[
+                  '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16', '#22c55e',
+                  '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1',
+                  '#8b5cf6', '#a855f7', '#c026d3', '#ec4899', '#f43f5e'
+                ].map(cor => (
+                  <button
+                    key={cor}
+                    type="button"
+                    onClick={() => setTagForm({...tagForm, cor})}
+                    className={`w-8 h-8 rounded-full border-2 transition-all ${
+                      tagForm.cor === cor ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                    style={{ backgroundColor: cor }}
                   />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Categoria</label>
-                  <Select 
-                    value={tagForm.categoria} 
-                    onValueChange={(value) => setTagForm({...tagForm, categoria: value})}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categorias.map(cat => (
-                        <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Cor</label>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {cores.map(cor => (
-                      <button
-                        key={cor}
-                        type="button"
-                        onClick={() => setTagForm({...tagForm, cor})}
-                        className={`w-8 h-8 rounded-full border-2 transition-all ${
-                          tagForm.cor === cor ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        style={{ backgroundColor: cor }}
-                      />
-                    ))}
-                  </div>
-                  <Input
-                    type="color"
-                    value={tagForm.cor}
-                    onChange={(e) => setTagForm({...tagForm, cor: e.target.value})}
-                    className="h-10"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Preview</label>
-                  <div 
-                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm font-medium"
-                    style={{ backgroundColor: tagForm.cor }}
-                  >
-                    <Tag className="h-4 w-4" />
-                    {tagForm.nome || 'Nome da Tag'}
-                  </div>
-                </div>
+                ))}
               </div>
+              <Input
+                type="color"
+                value={tagForm.cor}
+                onChange={(e) => setTagForm({...tagForm, cor: e.target.value})}
+                className="h-10"
+              />
+            </div>
 
-              <div className="flex justify-end gap-2 mt-6">
-                <Button
-                  variant="outline"
-                  onClick={resetTagForm}
-                  disabled={saving}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  onClick={editingTag ? handleUpdateTag : handleCreateTag}
-                  disabled={!tagForm.nome.trim() || saving}
-                >
-                  {saving ? (editingTag ? 'Salvando...' : 'Criando...') : (editingTag ? 'Salvar' : 'Criar')}
-                </Button>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Preview</label>
+              <div 
+                className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm font-medium"
+                style={{ backgroundColor: tagForm.cor }}
+              >
+                <Tag className="h-4 w-4" />
+                {tagForm.nome || 'Nome da Tag'}
               </div>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-    )
-  }
-      
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={resetTagForm}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={editingTag ? handleUpdateTag : handleCreateTag}
+              disabled={!tagForm.nome.trim() || saving}
+            >
+              {saving ? (editingTag ? 'Salvando...' : 'Criando...') : (editingTag ? 'Salvar' : 'Criar')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
