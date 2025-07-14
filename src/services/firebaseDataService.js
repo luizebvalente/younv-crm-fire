@@ -693,40 +693,7 @@ class FirebaseDataService {
     }
   }
   // NOVA MUDANÇA LVALENTE - 14 JUL
-async getLeadsPaginated(limit = 50) {
-  if (!this.useFirebase) {
-    // Fallback para localStorage se Firebase não estiver ativo
-    const leads = this.getFromLocalStorage('leads')
-    return leads.slice(0, limit) // Retorna apenas os primeiros X leads
-  }
 
-  try {
-    console.log('🔍 Carregando primeiros', limit, 'leads...')
-    
-    // Usar o mesmo padrão que funciona no getAll()
-    const allLeads = await firestoreService.getAll('leads')
-    
-    // Ordenar por data de registro (mais recentes primeiro)
-    const sortedLeads = allLeads.sort((a, b) => {
-      const dateA = new Date(a.dataRegistroContato || a.data_registro_contato || 0)
-      const dateB = new Date(b.dataRegistroContato || b.data_registro_contato || 0)
-      return dateB - dateA // Mais recentes primeiro
-    })
-    
-    // Pegar apenas os primeiros X leads
-    const limitedLeads = sortedLeads.slice(0, limit)
-    
-    console.log('✅ Carregados', limitedLeads.length, 'de', allLeads.length, 'leads totais')
-    
-    return limitedLeads
-    
-  } catch (error) {
-    console.error('❌ Erro ao carregar leads paginados, usando fallback:', error)
-    // Fallback para localStorage em caso de erro
-    const leads = this.getFromLocalStorage('leads')
-    return leads.slice(0, limit)
-  }
-}
 
   async getConversionRate() {
     if (this.useFirebase) {
