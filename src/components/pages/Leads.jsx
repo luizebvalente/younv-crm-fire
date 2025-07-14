@@ -162,7 +162,7 @@ export default function Leads() {
       setError(null)
       
       const [leadsData, medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
-        firebaseDataService.getLeadsPaginated(50),
+        firebaseDataService.getAll('leads'),
         firebaseDataService.getAll('medicos'),
         firebaseDataService.getAll('especialidades'),
         firebaseDataService.getAll('procedimentos'),
