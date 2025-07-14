@@ -692,6 +692,32 @@ class FirebaseDataService {
       })
     }
   }
+  // NOVA MUDANÇA LVALENTE - 14 JUL
+  async getLeadsPaginated(limit = 50) {
+  try {
+    console.log('🔍 Carregando primeiros', limit, 'leads...')
+    
+    const q = query(
+      collection(this.db, 'leads'),
+      orderBy('data_registro_contato', 'desc'),
+      limit(limit)
+    )
+    
+    const snapshot = await getDocs(q)
+    const leads = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }))
+    
+    console.log('✅ Carregados', leads.length, 'leads')
+    return leads
+    
+  } catch (error) {
+    console.error('❌ Erro ao carregar leads:', error)
+    throw error
+  }
+}
+  
 
   async getConversionRate() {
     if (this.useFirebase) {
