@@ -14,6 +14,59 @@ export const useRealtimeFirestore = (collection) => {
       try {
         setLoading(true)
         setError(null)
+        
+        const result = await firebaseDataService.getAll(collection)
+        
+        if (mounted) {
+          setData(result)
+        }
+      } catch (err) {
+        console.error(`Erro ao carregar ${collection}:`, err)
+        if (mounted) {
+          setError(err.message)
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadData()
+
+    // Cleanup function
+    return () => {
+      mounted = false
+    }
+  }, [collection])
+
+  const refetch = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const result = await firebaseDataService.getAll(collection)
+      setData(result)
+    } catch (err) {
+      console.error(`Erro ao recarregar ${collection}:`, err)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return { data, loading, error, refetch }
+}
+
+// Hook genérico para operações CRUD
+export const useFirestore = (collection) => {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
+  const create = async (data) => {
+    try {
+      setLoading(true)
+      setError(null)
       
       const result = await firebaseDataService.create(collection, data)
       return result
@@ -107,56 +160,3 @@ export const useRealtimeFirestore = (collection) => {
 }
 
 export default useFirestore
-        
-        const result = await firebaseDataService.getAll(collection)
-        
-        if (mounted) {
-          setData(result)
-        }
-      } catch (err) {
-        console.error(`Erro ao carregar ${collection}:`, err)
-        if (mounted) {
-          setError(err.message)
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false)
-        }
-      }
-    }
-
-    loadData()
-
-    // Cleanup
-    return () => {
-      mounted = false
-    }
-  }, [collection])
-
-  const refetch = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      
-      const result = await firebaseDataService.getAll(collection)
-      setData(result)
-    } catch (err) {
-      console.error(`Erro ao recarregar ${collection}:`, err)
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return { data, loading, error, refetch }
-}
-
-// Hook genérico para operações CRUD
-export const useFirestore = (collection) => {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
-
-  const create = async (data) => {
-    try {
-      setLoading(true)
-      setError(null)
