@@ -1,4 +1,4 @@
-import { firestoreService } from './firebase/firestoreService'
+import firestoreService from './firebase/firestore'
 
 class FirebaseDataService {
   constructor() {
