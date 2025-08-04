@@ -19,7 +19,7 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
   const location = useLocation()
   const { data: leads, loading: leadsLoading } = useRealtimeFirestore('leads')
 
-  // Função para verificar se uma data é hoje
+  // FUNÇÃO CORRIGIDA: Verificar se uma data é hoje
   const isToday = (dateString) => {
     if (!dateString) return false
     
@@ -27,16 +27,18 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
       const date = new Date(dateString)
       const today = new Date()
       
-      return date.getDate() === today.getDate() &&
-             date.getMonth() === today.getMonth() &&
-             date.getFullYear() === today.getFullYear()
+      // Normalizar as datas para comparar apenas dia/mês/ano
+      const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+      const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      
+      return dateOnly.getTime() === todayOnly.getTime()
     } catch (error) {
       console.error('Erro ao verificar data:', error)
       return false
     }
   }
 
-  // Calcular estatísticas em tempo real
+  // CÁLCULO CORRIGIDO: Usar os nomes corretos dos campos
   const stats = useMemo(() => {
     if (leadsLoading || !leads || leads.length === 0) {
       return {
@@ -47,93 +49,74 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
       }
     }
 
-    // Filtrar leads de hoje (por data de registro)
-    const leadsHoje = leads.filter(lead => isToday(lead.dataRegistroContato))
+    console.log('🔍 SIDEBAR: Analisando leads para estatísticas:', leads.length)
+    console.log('📋 SIDEBAR: Exemplo de lead:', leads[0])
 
-    // Para agendamentos e receita, vamos usar uma abordagem mais específica:
-    // Como não temos campos específicos de data de agendamento/conversão,
-    // vamos considerar apenas os leads que foram REGISTRADOS hoje E têm o status correspondente
-
-    // Agendamentos de hoje: leads registrados hoje que estão agendados
-    const agendamentosHoje = leadsHoje.filter(lead => {
-      const agendado = lead.agendado || lead.agendado === true
-      const status = lead.status || lead.status
-      return agendado === true || 
-             status === 'Agendado' || 
-             status === 'agendado' ||
-             status === 'AGENDADO'
-    }).length
-
-    // Receita de hoje: leads registrados hoje que foram convertidos
-    const leadsConvertidosHoje = leadsHoje.filter(lead => {
-      const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado
-      const status = lead.status || lead.status
-      return orcamentoFechado === true || 
-             status === 'Convertido' || 
-             status === 'convertido' ||
-             status === 'CONVERTIDO'
-    })
-
-    console.log('=== DEBUG RECEITA ===')
-    console.log('Leads de hoje:', leadsHoje.length)
-    console.log('Leads convertidos de hoje:', leadsConvertidosHoje.length)
-    
-    const receitaHoje = leadsConvertidosHoje.reduce((total, lead) => {
-      console.log('Processando lead:', lead.nomePaciente || lead.nome_paciente)
+    // CORREÇÃO 1: Usar o nome correto do campo de data
+    const leadsHoje = leads.filter(lead => {
+      // Tentar ambos os formatos de campo de data
+      const dataRegistro = lead.data_registro_contato || lead.dataRegistroContato
+      const isHoje = isToday(dataRegistro)
       
-      // Verificar se o orçamento é parcial ou total - usando os nomes corretos dos campos
-      const orcamentoFechado = lead.orcamentoFechado || lead.orcamento_fechado || 'Total'
-      const valorFechadoParcial = lead.valorFechadoParcial || lead.valor_fechado_parcial
-      const valorOrcado = lead.valorOrcado || lead.valor_orcado
-      
-      console.log('Status do orçamento:', orcamentoFechado)
-      console.log('Valor fechado parcial:', valorFechadoParcial)
-      console.log('Valor orçado:', valorOrcado)
-      
-      let valorParaUsar = 0
-      
-      // Se for orçamento PARCIAL, usar o valor fechado parcial
-      if (orcamentoFechado === 'Parcial' || orcamentoFechado === 'parcial' || orcamentoFechado === 'PARCIAL') {
-        console.log('Usando valor PARCIAL')
-        if (valorFechadoParcial !== undefined && valorFechadoParcial !== null && valorFechadoParcial !== '' && valorFechadoParcial !== 0) {
-          if (typeof valorFechadoParcial === 'string') {
-            // Remover formatação brasileira (R$, pontos, vírgulas)
-            const valorLimpo = valorFechadoParcial
-              .replace(/[R$\s]/g, '')
-              .replace(/\./g, '')
-              .replace(',', '.')
-            valorParaUsar = parseFloat(valorLimpo) || 0
-          } else if (typeof valorFechadoParcial === 'number') {
-            valorParaUsar = valorFechadoParcial
-          }
-        }
-      } else {
-        // Se for orçamento TOTAL, usar o valor orçado
-        console.log('Usando valor TOTAL')
-        if (valorOrcado !== undefined && valorOrcado !== null && valorOrcado !== '') {
-          if (typeof valorOrcado === 'string') {
-            // Remover formatação brasileira (R$, pontos, vírgulas)
-            const valorLimpo = valorOrcado
-              .replace(/[R$\s]/g, '')
-              .replace(/\./g, '')
-              .replace(',', '.')
-            valorParaUsar = parseFloat(valorLimpo) || 0
-          } else if (typeof valorOrcado === 'number') {
-            valorParaUsar = valorOrcado
-          }
-        }
+      if (isHoje) {
+        console.log('✅ SIDEBAR: Lead de hoje encontrado:', {
+          nome: lead.nome_paciente || lead.nomePackiente,
+          data: dataRegistro
+        })
       }
       
-      console.log('Valor para usar:', valorParaUsar)
-      console.log('Total anterior:', total)
-      console.log('Novo total:', total + valorParaUsar)
-      console.log('---')
+      return isHoje
+    })
+
+    console.log(`📊 SIDEBAR: ${leadsHoje.length} leads encontrados para hoje`)
+
+    // CORREÇÃO 2: Agendamentos de hoje - usar nomes corretos dos campos
+    const agendamentosHoje = leadsHoje.filter(lead => {
+      // Verificar diferentes formas de indicar agendamento
+      const agendado = lead.agendado === true
+      const statusAgendado = ['Agendado', 'agendado', 'AGENDADO', 'Confirmado', 'confirmado'].includes(lead.status)
       
+      return agendado || statusAgendado
+    }).length
+
+    console.log(`📅 SIDEBAR: ${agendamentosHoje} agendamentos hoje`)
+
+    // CORREÇÃO 3: Receita de hoje - leads convertidos hoje
+    const leadsConvertidosHoje = leadsHoje.filter(lead => {
+      const statusConvertido = ['Convertido', 'convertido', 'CONVERTIDO'].includes(lead.status)
+      const orcamentoFechado = lead.orcamento_fechado === 'Total' || lead.orcamento_fechado === 'Parcial'
+      
+      return statusConvertido || orcamentoFechado
+    })
+
+    console.log(`💰 SIDEBAR: ${leadsConvertidosHoje.length} leads convertidos hoje`)
+
+    // CORREÇÃO 4: Cálculo correto da receita
+    const receitaHoje = leadsConvertidosHoje.reduce((total, lead) => {
+      // Usar os nomes corretos dos campos de valor
+      const valorOrcado = lead.valor_orcado || lead.valorOrcado || 0
+      const valorFechadoParcial = lead.valor_fechado_parcial || lead.valorFechadoParcial || 0
+      const orcamentoStatus = lead.orcamento_fechado || lead.orcamentoFechado
+
+      let valorParaUsar = 0
+
+      if (orcamentoStatus === 'Parcial' && valorFechadoParcial > 0) {
+        valorParaUsar = valorFechadoParcial
+      } else if (orcamentoStatus === 'Total' || lead.status === 'Convertido') {
+        valorParaUsar = valorOrcado
+      }
+
+      // Converter string para número se necessário
+      if (typeof valorParaUsar === 'string') {
+        valorParaUsar = parseFloat(valorParaUsar.replace(/[R$\s.,]/g, '').replace(',', '.')) || 0
+      }
+
+      console.log(`💵 SIDEBAR: Lead ${lead.nome_paciente || lead.nomePackiente} contribui com R$ ${valorParaUsar}`)
+
       return total + valorParaUsar
     }, 0)
 
-    console.log('RECEITA FINAL DE HOJE:', receitaHoje)
-    console.log('=== FIM DEBUG ===')
+    console.log(`💸 SIDEBAR: Receita total hoje: R$ ${receitaHoje}`)
 
     return {
       totalLeads: leads.length,
@@ -184,12 +167,15 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
     }
   ]
 
-  // Função para formatar valores em milhares
-  const formatValue = (value) => {
+  // Função para formatar valores em reais
+  const formatCurrency = (value) => {
     if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}k`
     }
-    return value.toString()
+    return value.toLocaleString('pt-BR', { 
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0 
+    })
   }
 
   // Função para lidar com clique em links no mobile
@@ -275,34 +261,54 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
             })}
           </nav>
 
-          {/* Resumo Rápido */}
+          {/* RESUMO RÁPIDO CORRIGIDO */}
           <div className="p-4 border-t border-gray-800">
-            <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO RÁPIDO</h3>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-blue-400" />
-                  <span className="text-sm">Leads Hoje</span>
-                </div>
-                <span className="text-lg font-bold">{stats.leadsHoje}</span>
+            <h3 className="text-sm font-medium text-gray-400 mb-3">RESUMO DE HOJE</h3>
+            
+            {leadsLoading ? (
+              <div className="space-y-3">
+                <div className="animate-pulse bg-gray-700 h-4 rounded"></div>
+                <div className="animate-pulse bg-gray-700 h-4 rounded"></div>
+                <div className="animate-pulse bg-gray-700 h-4 rounded"></div>
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-green-400" />
-                  <span className="text-sm">Agendamentos</span>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserPlus className="h-4 w-4 text-blue-400" />
+                    <span className="text-sm">Novos Leads</span>
+                  </div>
+                  <span className="text-lg font-bold text-blue-400">{stats.leadsHoje}</span>
                 </div>
-                <span className="text-lg font-bold">{stats.agendamentosHoje}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="h-4 w-4 text-yellow-400" />
-                  <span className="text-sm">Receita</span>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-green-400" />
+                    <span className="text-sm">Agendamentos</span>
+                  </div>
+                  <span className="text-lg font-bold text-green-400">{stats.agendamentosHoje}</span>
                 </div>
-                <span className="text-lg font-bold">
-                  R$ {formatValue(stats.receitaHoje)}
-                </span>
+                
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-yellow-400" />
+                    <span className="text-sm">Receita</span>
+                  </div>
+                  <span className="text-lg font-bold text-yellow-400">
+                    R$ {formatCurrency(stats.receitaHoje)}
+                  </span>
+                </div>
+
+                {/* Indicador de atualização */}
+                <div className="text-xs text-gray-500 text-center mt-3 pt-2 border-t border-gray-700">
+                  {stats.totalLeads > 0 ? (
+                    `${stats.totalLeads} leads total`
+                  ) : (
+                    'Nenhum lead cadastrado'
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Footer */}
@@ -317,4 +323,3 @@ export default function Sidebar({ isOpen = false, onClose = () => {} }) {
     </>
   )
 }
-
