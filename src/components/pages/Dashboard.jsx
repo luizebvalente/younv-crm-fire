@@ -11,7 +11,7 @@ import {
   LineChart,
   Line
 } from 'recharts'
-import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2, Zap } from 'lucide-react'
+import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Activity, Loader2, Zap, Clock } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import firebaseDataService from '@/services/firebaseDataService'
@@ -161,7 +161,7 @@ const Dashboard = () => {
     }))
   }
 
-  // Dados para gráfico de evolução mensal
+  // CORREÇÃO: Dados para gráfico de evolução mensal (ORDENAÇÃO CORRIGIDA)
   const leadsPorMes = () => {
     const meses = {}
     leads.forEach(lead => {
@@ -169,15 +169,70 @@ const Dashboard = () => {
       
       try {
         const data = new Date(lead.data_registro_contato)
-        const mesAno = `${String(data.getMonth() + 1).padStart(2, '0')}/${data.getFullYear()}`
-        meses[mesAno] = (meses[mesAno] || 0) + 1
+        const ano = data.getFullYear()
+        const mes = data.getMonth() + 1
+        const chaveOrdenacao = `${ano}${String(mes).padStart(2, '0')}` // Para ordenação
+        const mesAnoDisplay = `${String(mes).padStart(2, '0')}/${ano}` // Para exibição
+        
+        if (!meses[chaveOrdenacao]) {
+          meses[chaveOrdenacao] = {
+            mes: mesAnoDisplay,
+            quantidade: 0,
+            chaveOrdenacao
+          }
+        }
+        meses[chaveOrdenacao].quantidade++
       } catch (error) {
         console.warn('Erro ao processar data para gráfico mensal:', lead.data_registro_contato)
       }
     })
-    return Object.entries(meses)
-      .map(([mes, quantidade]) => ({ mes, quantidade }))
+    
+    // CORREÇÃO: Ordenar do menor para o maior mês
+    return Object.values(meses)
+      .sort((a, b) => a.chaveOrdenacao.localeCompare(b.chaveOrdenacao))
       .slice(-6) // Últimos 6 meses
+      .map(({ mes, quantidade }) => ({ mes, quantidade }))
+  }
+
+  // NOVO: Dados para gráfico de evolução semanal (últimas 4 semanas)
+  const leadsPorSemana = () => {
+    const hoje = new Date()
+    const semanas = []
+    
+    // Gerar as últimas 4 semanas
+    for (let i = 3; i >= 0; i--) {
+      const inicioSemana = new Date(hoje)
+      inicioSemana.setDate(hoje.getDate() - (i * 7) - hoje.getDay()) // Domingo da semana
+      inicioSemana.setHours(0, 0, 0, 0)
+      
+      const fimSemana = new Date(inicioSemana)
+      fimSemana.setDate(inicioSemana.getDate() + 6) // Sábado da semana
+      fimSemana.setHours(23, 59, 59, 999)
+      
+      const leadsNaSemana = leads.filter(lead => {
+        if (!lead.data_registro_contato) return false
+        
+        try {
+          const dataLead = new Date(lead.data_registro_contato)
+          return dataLead >= inicioSemana && dataLead <= fimSemana
+        } catch (error) {
+          return false
+        }
+      }).length
+      
+      // Formatar label da semana
+      const labelSemana = i === 0 ? 'Esta semana' : 
+                         i === 1 ? 'Semana passada' : 
+                         `${i} semanas atrás`
+      
+      semanas.push({
+        semana: labelSemana,
+        quantidade: leadsNaSemana,
+        periodo: `${inicioSemana.getDate()}/${inicioSemana.getMonth() + 1} - ${fimSemana.getDate()}/${fimSemana.getMonth() + 1}`
+      })
+    }
+    
+    return semanas
   }
 
   const getMedicoNome = (id) => {
@@ -336,8 +391,8 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* Charts Section - AMPLIADA PARA 3 GRÁFICOS */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Leads por Canal */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
@@ -351,8 +406,8 @@ const Dashboard = () => {
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={leadsPorCanal()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="canal" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="canal" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: '#fff', 
@@ -375,21 +430,22 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Evolução Mensal */}
+        {/* GRÁFICO MENSAL CORRIGIDO */}
         <Card className="border-0 shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center text-lg font-semibold">
-              <TrendingUp className="h-5 w-5 mr-2 text-purple-600" />
-              Evolução de Leads
+              <TrendingUp className="h-5 w-5 mr-2 text-blue-600" />
+              Evolução Mensal
             </CardTitle>
+            <p className="text-sm text-gray-600">Últimos 6 meses</p>
           </CardHeader>
           <CardContent>
             {leadsPorMes().length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={leadsPorMes()}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: '#fff', 
@@ -401,10 +457,10 @@ const Dashboard = () => {
                   <Line 
                     type="monotone" 
                     dataKey="quantidade" 
-                    stroke="#8b5cf6" 
+                    stroke="#3b82f6" 
                     strokeWidth={3}
-                    dot={{ fill: '#8b5cf6', strokeWidth: 2, r: 6 }}
-                    activeDot={{ r: 8, stroke: '#8b5cf6', strokeWidth: 2 }}
+                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
+                    activeDot={{ r: 8, stroke: '#3b82f6', strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -412,6 +468,58 @@ const Dashboard = () => {
               <div className="flex items-center justify-center h-[300px] text-gray-500">
                 <div className="text-center">
                   <TrendingUp className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                  <p>Nenhum dado disponível</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* NOVO: GRÁFICO SEMANAL */}
+        <Card className="border-0 shadow-lg">
+          <CardHeader>
+            <CardTitle className="flex items-center text-lg font-semibold">
+              <Clock className="h-5 w-5 mr-2 text-green-600" />
+              Evolução Semanal
+            </CardTitle>
+            <p className="text-sm text-gray-600">Últimas 4 semanas</p>
+          </CardHeader>
+          <CardContent>
+            {leadsPorSemana().length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={leadsPorSemana()}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis 
+                    dataKey="semana" 
+                    tick={{ fontSize: 10 }}
+                    angle={-45}
+                    textAnchor="end"
+                    height={80}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                    formatter={(value, name, props) => [
+                      `${value} leads`,
+                      props.payload.periodo
+                    ]}
+                  />
+                  <Bar 
+                    dataKey="quantidade" 
+                    fill="#10b981" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <Clock className="h-12 w-12 mx-auto text-gray-300 mb-4" />
                   <p>Nenhum dado disponível</p>
                 </div>
               </div>
