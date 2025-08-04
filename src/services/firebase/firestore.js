@@ -134,51 +134,91 @@ class FirestoreService {
   }
 
   // CORREÇÃO: Atualizar documento preservando dados importantes
-  async update(collectionName, id, data) {
-    try {
-      console.log(`📝 Atualizando documento ${id} em ${collectionName}`)
-      console.log('Dados para atualização:', data)
-      
-      const docRef = doc(db, collectionName, id)
-      
-      // CORREÇÃO: Preparar dados para atualização, preservando campos importantes
-      const updateData = {
-        ...data,
-        updatedAt: serverTimestamp()
-      }
-      
-      // CORREÇÃO: Para leads, preservar dataRegistroContato se não for fornecido
-      if (collectionName === 'leads') {
-        // Se dataRegistroContato não foi fornecido, buscar o valor atual
-        if (!data.dataRegistroContato) {
-          const currentDoc = await this.getById(collectionName, id)
-          if (currentDoc && currentDoc.dataRegistroContato) {
-            updateData.dataRegistroContato = currentDoc.dataRegistroContato
-          } else {
-            updateData.dataRegistroContato = new Date().toISOString()
-          }
-        }
-      }
-      
-      console.log('Dados finais para atualização:', updateData)
-      
-      await updateDoc(docRef, updateData)
-      console.log(`✅ Documento ${id} atualizado com sucesso`)
-      
-      // Retornar o documento atualizado
-      const updatedDoc = await this.getById(collectionName, id)
-      return updatedDoc
-    } catch (error) {
-      console.error(`❌ Erro ao atualizar documento ${id} em ${collectionName}:`, error)
-      console.error('Detalhes do erro:', {
-        code: error.code,
-        message: error.message,
-        stack: error.stack
-      })
-      throw error
+// CORREÇÃO CRÍTICA: Atualizar documento de forma mais robusta
+async update(collectionName, id, data) {
+  try {
+    console.log(`📝 FIRESTORE: Atualizando documento ${id} em ${collectionName}`)
+    console.log('📋 FIRESTORE: Dados recebidos:', data)
+    
+    const docRef = doc(db, collectionName, id)
+    
+    // VERIFICAR se o documento existe antes de atualizar
+    const docSnap = await getDoc(docRef)
+    if (!docSnap.exists()) {
+      throw new Error(`Documento ${id} não existe em ${collectionName}`)
     }
+    
+    console.log('📋 FIRESTORE: Documento atual:', docSnap.data())
+    
+    // PREPARAR dados para atualização
+    const updateData = {
+      ...data, // Usar EXATAMENTE os dados recebidos
+      updatedAt: serverTimestamp()
+    }
+    
+    // REMOVER campos undefined para evitar erros
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key]
+      }
+    })
+    
+    console.log('💾 FIRESTORE: Dados finais para updateDoc:', updateData)
+    
+    // EXECUTAR a atualização
+    await updateDoc(docRef, updateData)
+    console.log(`✅ FIRESTORE: updateDoc executado com sucesso para ${id}`)
+    
+    // BUSCAR documento atualizado para retornar
+    const updatedDocSnap = await getDoc(docRef)
+    if (updatedDocSnap.exists()) {
+      const result = {
+        id: updatedDocSnap.id,
+        ...updatedDocSnap.data(),
+        ...this.convertTimestamps(updatedDocSnap.data())
+      }
+      console.log(`✅ FIRESTORE: Documento ${id} atualizado e retornado:`, result)
+      return result
+    } else {
+      console.error(`❌ FIRESTORE: Documento ${id} não encontrado após atualização`)
+      throw new Error(`Documento ${id} não encontrado após atualização`)
+    }
+    
+  } catch (error) {
+    console.error(`❌ FIRESTORE: Erro crítico ao atualizar documento ${id} em ${collectionName}:`, {
+      error: error.message,
+      code: error.code,
+      stack: error.stack,
+      data: data
+    })
+    
+    // Se for erro de permissão ou rede, tentar novamente uma vez
+    if (error.code === 'permission-denied' || error.code === 'unavailable') {
+      console.log('🔄 FIRESTORE: Tentando novamente devido a erro temporário...')
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Aguardar 1 segundo
+      
+      try {
+        const docRef = doc(db, collectionName, id)
+        await updateDoc(docRef, updateData)
+        
+        const retryDocSnap = await getDoc(docRef)
+        if (retryDocSnap.exists()) {
+          const result = {
+            id: retryDocSnap.id,
+            ...retryDocSnap.data(),
+            ...this.convertTimestamps(retryDocSnap.data())
+          }
+          console.log(`✅ FIRESTORE: Documento ${id} atualizado na segunda tentativa`)
+          return result
+        }
+      } catch (retryError) {
+        console.error(`❌ FIRESTORE: Falha também na segunda tentativa:`, retryError)
+      }
+    }
+    
+    throw error
   }
-
+}
   // Deletar documento
   async delete(collectionName, id) {
     try {
