@@ -60,29 +60,53 @@ const Dashboard = () => {
   const valorTotal = leads.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
 
   // NOVO: Cálculo de leads cadastrados hoje
-  const leadsHoje = leads.filter(lead => {
-    if (!lead.data_registro_contato) return false
-    
+const leadsHoje = leads.filter(lead => {
+  if (!lead.data_registro_contato) return false
+  
+  try {
     const hoje = new Date()
     const dataLead = new Date(lead.data_registro_contato)
     
+    // CORREÇÃO: Normalizar as datas para comparação (sem horário)
+    const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
+    const dataLeadNormalizada = new Date(dataLead.getFullYear(), dataLead.getMonth(), dataLead.getDate())
+    
     // Comparar apenas a data (ignorar horário)
-    return hoje.toDateString() === dataLead.toDateString()
-  }).length
+    return hojeNormalizada.getTime() === dataLeadNormalizada.getTime()
+  } catch (error) {
+    console.warn('Erro ao processar data do lead:', lead.data_registro_contato, error)
+    return false
+  }
+}).length
 
   // NOVO: Cálculo de leads cadastrados ontem para comparação
-  const leadsOntem = leads.filter(lead => {
-    if (!lead.data_registro_contato) return false
-    
+const leadsOntem = leads.filter(lead => {
+  if (!lead.data_registro_contato) return false
+  
+  try {
     const ontem = new Date()
     ontem.setDate(ontem.getDate() - 1)
     const dataLead = new Date(lead.data_registro_contato)
     
-    return ontem.toDateString() === dataLead.toDateString()
-  }).length
-
+    // CORREÇÃO: Normalizar as datas para comparação (sem horário)
+    const ontemNormalizada = new Date(ontem.getFullYear(), ontem.getMonth(), ontem.getDate())
+    const dataLeadNormalizada = new Date(dataLead.getFullYear(), dataLead.getMonth(), dataLead.getDate())
+    
+    return ontemNormalizada.getTime() === dataLeadNormalizada.getTime()
+  } catch (error) {
+    console.warn('Erro ao processar data do lead para ontem:', lead.data_registro_contato, error)
+    return false
+  }
+}).length
   // NOVO: Cálculo da diferença entre hoje e ontem
   const diferencaHojeOntem = leadsHoje - leadsOntem
+
+console.log('📊 Estatísticas de leads:', {
+  hoje: leadsHoje,
+  ontem: leadsOntem,
+  diferenca: diferencaHojeOntem,
+  total: leads.length
+})
 
   // Leads recentes (últimos 5)
   const leadsRecentes = leads
