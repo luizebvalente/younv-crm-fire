@@ -44,6 +44,13 @@ const Dashboard = () => {
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
       setProcedimentos(procedimentosData)
+      
+      console.log('📊 Dados carregados no Dashboard:', {
+        leads: leadsData.length,
+        medicos: medicosData.length,
+        especialidades: especialidadesData.length,
+        procedimentos: procedimentosData.length
+      })
     } catch (err) {
       console.error('Erro ao carregar dados do dashboard:', err)
       setError('Erro ao carregar dados do dashboard. Tente novamente.')
@@ -59,54 +66,77 @@ const Dashboard = () => {
   const taxaConversao = totalLeads > 0 ? ((convertidos / totalLeads) * 100).toFixed(1) : 0
   const valorTotal = leads.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
 
-  // NOVO: Cálculo de leads cadastrados hoje
-const leadsHoje = leads.filter(lead => {
-  if (!lead.data_registro_contato) return false
-  
-  try {
-    const hoje = new Date()
-    const dataLead = new Date(lead.data_registro_contato)
-    
-    // CORREÇÃO: Normalizar as datas para comparação (sem horário)
-    const hojeNormalizada = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate())
-    const dataLeadNormalizada = new Date(dataLead.getFullYear(), dataLead.getMonth(), dataLead.getDate())
-    
-    // Comparar apenas a data (ignorar horário)
-    return hojeNormalizada.getTime() === dataLeadNormalizada.getTime()
-  } catch (error) {
-    console.warn('Erro ao processar data do lead:', lead.data_registro_contato, error)
-    return false
+  // CORREÇÃO COMPLETA: Função para normalizar data (sem horário)
+  const normalizarData = (data) => {
+    const d = new Date(data)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate())
   }
-}).length
 
-  // NOVO: Cálculo de leads cadastrados ontem para comparação
-const leadsOntem = leads.filter(lead => {
-  if (!lead.data_registro_contato) return false
-  
-  try {
-    const ontem = new Date()
-    ontem.setDate(ontem.getDate() - 1)
-    const dataLead = new Date(lead.data_registro_contato)
+  // CORREÇÃO: Cálculo de leads cadastrados hoje - VERSÃO CORRIGIDA
+  const leadsHoje = leads.filter(lead => {
+    if (!lead.data_registro_contato) {
+      console.log('❌ Lead sem data_registro_contato:', lead.nome_paciente)
+      return false
+    }
     
-    // CORREÇÃO: Normalizar as datas para comparação (sem horário)
-    const ontemNormalizada = new Date(ontem.getFullYear(), ontem.getMonth(), ontem.getDate())
-    const dataLeadNormalizada = new Date(dataLead.getFullYear(), dataLead.getMonth(), dataLead.getDate())
+    try {
+      const hoje = normalizarData(new Date())
+      const dataLead = normalizarData(lead.data_registro_contato)
+      
+      const isToday = hoje.getTime() === dataLead.getTime()
+      
+      if (isToday) {
+        console.log('✅ Lead de hoje encontrado:', {
+          nome: lead.nome_paciente,
+          data_registro: lead.data_registro_contato,
+          data_normalizada: dataLead.toISOString(),
+          hoje_normalizado: hoje.toISOString()
+        })
+      }
+      
+      return isToday
+    } catch (error) {
+      console.error('❌ Erro ao processar data do lead:', {
+        nome: lead.nome_paciente,
+        data: lead.data_registro_contato,
+        erro: error.message
+      })
+      return false
+    }
+  }).length
+
+  // CORREÇÃO: Cálculo de leads cadastrados ontem para comparação
+  const leadsOntem = leads.filter(lead => {
+    if (!lead.data_registro_contato) return false
     
-    return ontemNormalizada.getTime() === dataLeadNormalizada.getTime()
-  } catch (error) {
-    console.warn('Erro ao processar data do lead para ontem:', lead.data_registro_contato, error)
-    return false
-  }
-}).length
-  // NOVO: Cálculo da diferença entre hoje e ontem
+    try {
+      const ontem = new Date()
+      ontem.setDate(ontem.getDate() - 1)
+      const ontemNormalizada = normalizarData(ontem)
+      const dataLead = normalizarData(lead.data_registro_contato)
+      
+      return ontemNormalizada.getTime() === dataLead.getTime()
+    } catch (error) {
+      console.error('❌ Erro ao processar data do lead para ontem:', lead.data_registro_contato, error)
+      return false
+    }
+  }).length
+
+  // Diferença entre hoje e ontem
   const diferencaHojeOntem = leadsHoje - leadsOntem
 
-console.log('📊 Estatísticas de leads:', {
-  hoje: leadsHoje,
-  ontem: leadsOntem,
-  diferenca: diferencaHojeOntem,
-  total: leads.length
-})
+  // Debug para acompanhar as estatísticas
+  console.log('📊 Estatísticas de leads calculadas:', {
+    total: totalLeads,
+    hoje: leadsHoje,
+    ontem: leadsOntem,
+    diferenca: diferencaHojeOntem,
+    amostra_leads: leads.slice(0, 3).map(l => ({
+      nome: l.nome_paciente,
+      data: l.data_registro_contato,
+      data_normalizada: l.data_registro_contato ? normalizarData(l.data_registro_contato).toISOString() : null
+    }))
+  })
 
   // Leads recentes (últimos 5)
   const leadsRecentes = leads
@@ -122,7 +152,8 @@ console.log('📊 Estatísticas de leads:', {
   const leadsPorCanal = () => {
     const canais = {}
     leads.forEach(lead => {
-      canais[lead.canal_contato] = (canais[lead.canal_contato] || 0) + 1
+      const canal = lead.canal_contato || 'Não informado'
+      canais[canal] = (canais[canal] || 0) + 1
     })
     return Object.entries(canais).map(([canal, quantidade]) => ({
       canal,
@@ -134,9 +165,15 @@ console.log('📊 Estatísticas de leads:', {
   const leadsPorMes = () => {
     const meses = {}
     leads.forEach(lead => {
-      const data = new Date(lead.data_registro_contato)
-      const mesAno = `${String(data.getMonth() + 1).padStart(2, '0')}/${data.getFullYear()}`
-      meses[mesAno] = (meses[mesAno] || 0) + 1
+      if (!lead.data_registro_contato) return
+      
+      try {
+        const data = new Date(lead.data_registro_contato)
+        const mesAno = `${String(data.getMonth() + 1).padStart(2, '0')}/${data.getFullYear()}`
+        meses[mesAno] = (meses[mesAno] || 0) + 1
+      } catch (error) {
+        console.warn('Erro ao processar data para gráfico mensal:', lead.data_registro_contato)
+      }
     })
     return Object.entries(meses)
       .map(([mes, quantidade]) => ({ mes, quantidade }))
@@ -161,17 +198,28 @@ console.log('📊 Estatísticas de leads:', {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('pt-BR')
+    if (!dateString) return 'Não informado'
+    try {
+      return new Date(dateString).toLocaleDateString('pt-BR')
+    } catch {
+      return 'Data inválida'
+    }
   }
 
   const formatTime = (dateString) => {
-    const now = new Date()
-    const date = new Date(dateString)
-    const diffInHours = Math.floor((now - date) / (1000 * 60 * 60))
+    if (!dateString) return 'Não informado'
     
-    if (diffInHours < 1) return 'há poucos minutos'
-    if (diffInHours < 24) return `há ${diffInHours} horas`
-    return `há ${Math.floor(diffInHours / 24)} dias`
+    try {
+      const now = new Date()
+      const date = new Date(dateString)
+      const diffInHours = Math.floor((now - date) / (1000 * 60 * 60))
+      
+      if (diffInHours < 1) return 'há poucos minutos'
+      if (diffInHours < 24) return `há ${diffInHours} horas`
+      return `há ${Math.floor(diffInHours / 24)} dias`
+    } catch {
+      return 'Data inválida'
+    }
   }
 
   if (loading) {
@@ -221,7 +269,7 @@ console.log('📊 Estatísticas de leads:', {
             <div className="text-3xl font-bold text-gray-900">{totalLeads}</div>
             <p className="text-sm text-gray-600 mt-2 flex items-center">
               <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+0</span> vs mês anterior
+              <span className="text-green-600 font-medium">Sistema ativo</span>
             </p>
           </CardContent>
         </Card>
@@ -238,8 +286,8 @@ console.log('📊 Estatísticas de leads:', {
           <CardContent>
             <div className="text-3xl font-bold text-gray-900">{agendados}</div>
             <p className="text-sm text-gray-600 mt-2 flex items-center">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+0</span> vs mês anterior
+              <Calendar className="h-4 w-4 text-green-600 mr-1" />
+              <span className="text-green-600 font-medium">Confirmados</span>
             </p>
           </CardContent>
         </Card>
@@ -256,12 +304,13 @@ console.log('📊 Estatísticas de leads:', {
           <CardContent>
             <div className="text-3xl font-bold text-gray-900">{taxaConversao}%</div>
             <p className="text-sm text-gray-600 mt-2 flex items-center">
-              <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-              <span className="text-green-600 font-medium">+3%</span> vs mês anterior
+              <Target className="h-4 w-4 text-purple-600 mr-1" />
+              <span className="text-purple-600 font-medium">{convertidos} convertidos</span>
             </p>
           </CardContent>
         </Card>
 
+        {/* CARD CORRIGIDO - Leads Hoje */}
         <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 hover:shadow-xl transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-700">
@@ -281,7 +330,7 @@ console.log('📊 Estatísticas de leads:', {
               )}
               <span className={`font-medium ${diferencaHojeOntem >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {diferencaHojeOntem >= 0 ? '+' : ''}{diferencaHojeOntem}
-              </span> vs ontem
+              </span> vs ontem ({leadsOntem})
             </p>
           </CardContent>
         </Card>
@@ -461,4 +510,3 @@ console.log('📊 Estatísticas de leads:', {
 }
 
 export default Dashboard
-
