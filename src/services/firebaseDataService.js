@@ -730,64 +730,78 @@ class FirebaseDataService {
   }
 
   // CORREÇÃO PRINCIPAL: Método update corrigido para preservar dados de criação
-  async update(entity, id, updatedItem) {
-    if (this.useFirebase) {
-      try {
-        console.log(`🔄 Iniciando atualização de ${entity} ${id}`)
-        console.log('Dados recebidos para atualização:', updatedItem)
+async update(entity, id, updatedItem) {
+  if (this.useFirebase) {
+    try {
+      console.log(`🔄 INICIANDO atualização de ${entity} ${id}`)
+      console.log('📥 Dados recebidos para atualização:', updatedItem)
 
-        // CORREÇÃO: Buscar dados atuais ANTES de atualizar
-        const currentData = await firestoreService.getById(this.getCollectionName(entity), id)
-        if (!currentData) {
-          throw new Error(`${entity} com ID ${id} não encontrado`)
-        }
-
-        console.log('Dados atuais encontrados:', currentData)
-
-        const currentUser = this.getCurrentUserInfo()
-        
-        // CORREÇÃO: Mesclar dados preservando campos de criação originais
-        const mergedData = {
-          // PRESERVAR todos os dados atuais primeiro
-          ...currentData,
-          // Aplicar apenas as atualizações enviadas
-          ...updatedItem,
-          // PRESERVAR dados originais de criação (nunca sobrescrever)
-          criadoPorId: currentData.criadoPorId || currentData.criado_por_id || currentUser.id,
-          criadoPorNome: currentData.criadoPorNome || currentData.criado_por_nome || currentUser.nome,
-          criadoPorEmail: currentData.criadoPorEmail || currentData.criado_por_email || currentUser.email,
-          dataRegistroContato: currentData.dataRegistroContato || currentData.data_registro_contato || new Date().toISOString(),
-          // ATUALIZAR apenas dados de modificação
-          alterado_por_id: currentUser.id,
-          alterado_por_nome: currentUser.nome,
-          alterado_por_email: currentUser.email,
-          data_ultima_alteracao: new Date().toISOString()
-        }
-
-        console.log('Dados mesclados antes da transformação:', mergedData)
-
-        // Transformar dados para o formato Firebase
-        const firebaseData = this.transformToFirebase(entity, mergedData)
-        console.log('Dados transformados para Firebase:', firebaseData)
-        
-        // CORREÇÃO: Atualizar no Firebase
-        const result = await firestoreService.update(this.getCollectionName(entity), id, firebaseData)
-        
-        console.log(`✅ ${entity} ${id} atualizado com sucesso no Firebase`)
-        console.log('Resultado da atualização:', result)
-        
-        return this.transformFromFirebase(entity, result)
-      } catch (error) {
-        console.error(`❌ Erro ao atualizar ${entity} no Firebase:`, error)
-        console.error('Detalhes do erro:', error.message)
-        console.error('Stack trace:', error.stack)
-        // Fallback para localStorage
-        return this.updateInLocalStorage(entity, id, updatedItem)
+      // PASSO 1: Buscar dados atuais DIRETAMENTE do Firebase (não transformados)
+      const currentFirebaseData = await firestoreService.getById(this.getCollectionName(entity), id)
+      if (!currentFirebaseData) {
+        throw new Error(`${entity} com ID ${id} não encontrado no Firebase`)
       }
-    } else {
+
+      console.log('📋 Dados atuais no Firebase:', currentFirebaseData)
+
+      const currentUser = this.getCurrentUserInfo()
+      
+      // PASSO 2: Transformar dados de atualização para formato Firebase PRIMEIRO
+      const updatedFirebaseData = this.transformToFirebase(entity, updatedItem)
+      console.log('🔄 Dados de atualização transformados para Firebase:', updatedFirebaseData)
+      
+      // PASSO 3: Mesclar dados preservando campos críticos
+      const finalUpdateData = {
+        // PRESERVAR todos os dados atuais do Firebase
+        ...currentFirebaseData,
+        // APLICAR as atualizações (já transformadas)
+        ...updatedFirebaseData,
+        // PRESERVAR campos críticos que nunca devem ser sobrescritos
+        createdAt: currentFirebaseData.createdAt, // Preservar timestamp de criação
+        // Para leads, preservar dados de criação originais
+        ...(entity === 'leads' && {
+          criadoPorId: currentFirebaseData.criadoPorId || currentUser.id,
+          criadoPorNome: currentFirebaseData.criadoPorNome || currentUser.nome,
+          criadoPorEmail: currentFirebaseData.criadoPorEmail || currentUser.email,
+          dataRegistroContato: currentFirebaseData.dataRegistroContato || new Date().toISOString(),
+          // Atualizar dados de modificação
+          alteradoPorId: currentUser.id,
+          alteradoPorNome: currentUser.nome,
+          alteradoPorEmail: currentUser.email,
+          dataUltimaAlteracao: new Date().toISOString()
+        })
+      }
+
+      console.log('🎯 Dados finais para atualização no Firebase:', finalUpdateData)
+
+      // PASSO 4: Atualizar diretamente no Firebase (sem nova transformação)
+      const result = await firestoreService.update(this.getCollectionName(entity), id, finalUpdateData)
+      
+      console.log('✅ Atualização no Firebase concluída:', result)
+      
+      // PASSO 5: Retornar dados transformados para o frontend
+      const finalResult = this.transformFromFirebase(entity, result)
+      console.log('📤 Dados retornados para o frontend:', finalResult)
+      
+      return finalResult
+      
+    } catch (error) {
+      console.error(`❌ ERRO CRÍTICO ao atualizar ${entity} no Firebase:`, {
+        error: error.message,
+        stack: error.stack,
+        entity,
+        id,
+        updatedItem
+      })
+      
+      // Fallback para localStorage em caso de erro
+      console.log('🔄 Tentando fallback para localStorage...')
       return this.updateInLocalStorage(entity, id, updatedItem)
     }
+  } else {
+    return this.updateInLocalStorage(entity, id, updatedItem)
   }
+}
 
   async delete(entity, id) {
     if (this.useFirebase) {
