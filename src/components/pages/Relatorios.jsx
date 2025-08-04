@@ -27,11 +27,13 @@ import {
   Phone,
   Mail,
   User,
-  ArrowLeft
+  ArrowLeft,
+  Search
 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import firebaseDataService from '@/services/firebaseDataService'
 
 const Relatorios = () => {
@@ -44,8 +46,10 @@ const Relatorios = () => {
   // Estados para o modal de leads por médico
   const [selectedMedico, setSelectedMedico] = useState(null)
   const [selectedMedicoLeads, setSelectedMedicoLeads] = useState([])
+  const [filteredMedicoLeads, setFilteredMedicoLeads] = useState([])
   const [showMedicoLeads, setShowMedicoLeads] = useState(false)
   const [loadingMedicoLeads, setLoadingMedicoLeads] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
 
   useEffect(() => {
     loadData()
@@ -78,6 +82,7 @@ const Relatorios = () => {
     try {
       setLoadingMedicoLeads(true)
       setSelectedMedico(medico)
+      setSearchTerm('') // Limpar pesquisa ao abrir
       
       // Filtrar leads do médico específico
       const medicoLeads = leads.filter(lead => lead.medico_agendado_id === medico.id)
@@ -90,6 +95,7 @@ const Relatorios = () => {
       })
       
       setSelectedMedicoLeads(sortedLeads)
+      setFilteredMedicoLeads(sortedLeads) // Inicializar lista filtrada
       setShowMedicoLeads(true)
     } catch (err) {
       console.error('Erro ao carregar leads do médico:', err)
@@ -99,11 +105,37 @@ const Relatorios = () => {
     }
   }
 
+  // Função para filtrar leads baseado na pesquisa
+  const handleSearch = (term) => {
+    setSearchTerm(term)
+    
+    if (!term.trim()) {
+      setFilteredMedicoLeads(selectedMedicoLeads)
+      return
+    }
+    
+    const filtered = selectedMedicoLeads.filter(lead => {
+      const searchLower = term.toLowerCase()
+      return (
+        lead.nome_paciente?.toLowerCase().includes(searchLower) ||
+        lead.telefone?.toLowerCase().includes(searchLower) ||
+        lead.email?.toLowerCase().includes(searchLower) ||
+        lead.canal_contato?.toLowerCase().includes(searchLower) ||
+        lead.status?.toLowerCase().includes(searchLower) ||
+        lead.solicitacao_paciente?.toLowerCase().includes(searchLower)
+      )
+    })
+    
+    setFilteredMedicoLeads(filtered)
+  }
+
   // Fechar modal de leads
   const closeMedicoLeads = () => {
     setShowMedicoLeads(false)
     setSelectedMedico(null)
     setSelectedMedicoLeads([])
+    setFilteredMedicoLeads([])
+    setSearchTerm('')
   }
 
   // Cálculos para métricas
@@ -461,13 +493,14 @@ const Relatorios = () => {
           <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
             {/* Header do Modal */}
             <div className="p-6 border-b bg-gray-50">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">
                     Leads de {selectedMedico?.nome}
                   </h2>
                   <p className="text-gray-600 mt-1">
-                    {selectedMedicoLeads.length} leads encontrados
+                    {filteredMedicoLeads.length} de {selectedMedicoLeads.length} leads
+                    {searchTerm && ` (filtrados por "${searchTerm}")`}
                   </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -488,6 +521,28 @@ const Relatorios = () => {
                   </Button>
                 </div>
               </div>
+              
+              {/* Barra de Pesquisa */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Pesquisar por nome, telefone, email, canal ou status..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSearch('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Conteúdo do Modal */}
@@ -498,8 +553,9 @@ const Relatorios = () => {
                   <span className="ml-2">Carregando leads...</span>
                 </div>
               ) : selectedMedicoLeads.length > 0 ? (
-                <div className="space-y-4">
-                  {selectedMedicoLeads.map((lead) => (
+                filteredMedicoLeads.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredMedicoLeads.map((lead) => (
                     <Card key={lead.id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-4">
                         <div className="flex items-start justify-between">
@@ -561,6 +617,20 @@ const Relatorios = () => {
                     </Card>
                   ))}
                 </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Search className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500">Nenhum lead encontrado para "{searchTerm}"</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSearch('')}
+                      className="mt-2"
+                    >
+                      Limpar pesquisa
+                    </Button>
+                  </div>
+                )
               ) : (
                 <div className="text-center py-12">
                   <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
