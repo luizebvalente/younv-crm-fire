@@ -1,4 +1,4 @@
-// Serviço de dados híbrido Firebase/localStorage - VERSÃO COM RASTREAMENTO DE USUÁRIO
+// Serviço de dados híbrido Firebase/localStorage - VERSÃO CORRIGIDA
 import firestoreService from './firebase/firestore'
 
 class FirebaseDataService {
@@ -71,7 +71,7 @@ class FirebaseDataService {
         status: data.status,
         dataRegistroContato: data.data_registro_contato,
         tags: data.tags || [],
-        // NOVO: Campos de rastreamento de usuário
+        // CAMPOS DE RASTREAMENTO DE USUÁRIO
         criadoPorId: data.criado_por_id,
         criadoPorNome: data.criado_por_nome,
         criadoPorEmail: data.criado_por_email,
@@ -127,7 +127,7 @@ class FirebaseDataService {
         status: data.status,
         data_registro_contato: data.dataRegistroContato || data.data_registro_contato,
         tags: data.tags || [],
-        // NOVO: Campos de rastreamento de usuário
+        // CAMPOS DE RASTREAMENTO DE USUÁRIO
         criado_por_id: data.criadoPorId || data.criado_por_id,
         criado_por_nome: data.criadoPorNome || data.criado_por_nome || 'Sistema',
         criado_por_email: data.criadoPorEmail || data.criado_por_email || '',
@@ -155,7 +155,7 @@ class FirebaseDataService {
   }
 
   // ==========================================
-  // NOVAS FUNÇÕES PARA TAGS
+  // FUNÇÕES PARA TAGS
   // ==========================================
 
   // Migração para adicionar campos de usuário aos leads existentes
@@ -657,11 +657,13 @@ class FirebaseDataService {
     }
   }
 
-  // Métodos genéricos para CRUD
+  // CORREÇÃO: Métodos genéricos para CRUD com ordenação correta
   async getAll(entity) {
     if (this.useFirebase) {
       try {
-        const data = await firestoreService.getAll(this.getCollectionName(entity))
+        // CORREÇÃO: Para leads, ordenar por data de criação mais recente primeiro
+        const orderField = entity === 'leads' ? 'dataRegistroContato' : 'createdAt'
+        const data = await firestoreService.getAll(this.getCollectionName(entity), orderField, 'desc')
         console.log(`Dados brutos do Firebase para ${entity}:`, data) // Debug
         
         // Transformar dados do Firebase para formato frontend
@@ -727,47 +729,59 @@ class FirebaseDataService {
     }
   }
 
+  // CORREÇÃO PRINCIPAL: Método update corrigido para preservar dados de criação
   async update(entity, id, updatedItem) {
     if (this.useFirebase) {
       try {
-        // CORREÇÃO: Buscar dados atuais para preservar informações originais
+        console.log(`🔄 Iniciando atualização de ${entity} ${id}`)
+        console.log('Dados recebidos para atualização:', updatedItem)
+
+        // CORREÇÃO: Buscar dados atuais ANTES de atualizar
         const currentData = await firestoreService.getById(this.getCollectionName(entity), id)
         if (!currentData) {
           throw new Error(`${entity} com ID ${id} não encontrado`)
         }
 
+        console.log('Dados atuais encontrados:', currentData)
+
         const currentUser = this.getCurrentUserInfo()
         
-        // CORREÇÃO: Preservar dados originais de criação e atualizar apenas campos de modificação
-        const itemWithUserInfo = {
-          ...currentData, // Preserva TODOS os dados atuais
-          ...updatedItem, // Sobrescreve apenas os campos que estão sendo atualizados
-          // Preservar dados originais de criação (não sobrescrever)
-          criadoPorId: currentData.criadoPorId || currentData.criado_por_id,
-          criadoPorNome: currentData.criadoPorNome || currentData.criado_por_nome,
-          criadoPorEmail: currentData.criadoPorEmail || currentData.criado_por_email,
-          // Atualizar apenas dados de modificação
+        // CORREÇÃO: Mesclar dados preservando campos de criação originais
+        const mergedData = {
+          // PRESERVAR todos os dados atuais primeiro
+          ...currentData,
+          // Aplicar apenas as atualizações enviadas
+          ...updatedItem,
+          // PRESERVAR dados originais de criação (nunca sobrescrever)
+          criadoPorId: currentData.criadoPorId || currentData.criado_por_id || currentUser.id,
+          criadoPorNome: currentData.criadoPorNome || currentData.criado_por_nome || currentUser.nome,
+          criadoPorEmail: currentData.criadoPorEmail || currentData.criado_por_email || currentUser.email,
+          dataRegistroContato: currentData.dataRegistroContato || currentData.data_registro_contato || new Date().toISOString(),
+          // ATUALIZAR apenas dados de modificação
           alterado_por_id: currentUser.id,
           alterado_por_nome: currentUser.nome,
           alterado_por_email: currentUser.email,
           data_ultima_alteracao: new Date().toISOString()
         }
 
-        console.log(`🔄 Atualizando ${entity} ${id}:`, {
-          usuario_atual: currentUser.nome,
-          criado_originalmente_por: itemWithUserInfo.criadoPorNome || itemWithUserInfo.criado_por_nome,
-          dados_preservados: !!currentData
-        })
+        console.log('Dados mesclados antes da transformação:', mergedData)
 
         // Transformar dados para o formato Firebase
-        const firebaseData = this.transformToFirebase(entity, itemWithUserInfo)
+        const firebaseData = this.transformToFirebase(entity, mergedData)
+        console.log('Dados transformados para Firebase:', firebaseData)
+        
+        // CORREÇÃO: Atualizar no Firebase
         const result = await firestoreService.update(this.getCollectionName(entity), id, firebaseData)
         
-        console.log(`✅ ${entity} ${id} atualizado com sucesso`)
+        console.log(`✅ ${entity} ${id} atualizado com sucesso no Firebase`)
+        console.log('Resultado da atualização:', result)
+        
         return this.transformFromFirebase(entity, result)
       } catch (error) {
         console.error(`❌ Erro ao atualizar ${entity} no Firebase:`, error)
-        console.error('Usando localStorage como fallback')
+        console.error('Detalhes do erro:', error.message)
+        console.error('Stack trace:', error.stack)
+        // Fallback para localStorage
         return this.updateInLocalStorage(entity, id, updatedItem)
       }
     } else {
@@ -788,11 +802,22 @@ class FirebaseDataService {
     }
   }
 
-  // Métodos localStorage (fallback)
+  // CORREÇÃO: Métodos localStorage (fallback) com ordenação correta
   getFromLocalStorage(entity) {
     const key = `younv_${entity}`
     const data = localStorage.getItem(key)
-    return data ? JSON.parse(data) : []
+    const items = data ? JSON.parse(data) : []
+    
+    // CORREÇÃO: Ordenar leads por data mais recente primeiro
+    if (entity === 'leads') {
+      return items.sort((a, b) => {
+        const dateA = new Date(a.data_registro_contato || a.createdAt || 0)
+        const dateB = new Date(b.data_registro_contato || b.createdAt || 0)
+        return dateB - dateA // Mais recente primeiro
+      })
+    }
+    
+    return items
   }
 
   createInLocalStorage(entity, item) {
