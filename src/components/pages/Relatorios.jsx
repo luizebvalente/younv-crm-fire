@@ -14,8 +14,24 @@ import {
   LineChart,
   Line
 } from 'recharts'
-import { Users, UserPlus, Calendar, TrendingUp, DollarSign, Target, Loader2 } from 'lucide-react'
+import { 
+  Users, 
+  UserPlus, 
+  Calendar, 
+  TrendingUp, 
+  DollarSign, 
+  Target, 
+  Loader2,
+  X,
+  Eye,
+  Phone,
+  Mail,
+  User,
+  ArrowLeft
+} from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import firebaseDataService from '@/services/firebaseDataService'
 
 const Relatorios = () => {
@@ -24,6 +40,12 @@ const Relatorios = () => {
   const [especialidades, setEspecialidades] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  
+  // Estados para o modal de leads por médico
+  const [selectedMedico, setSelectedMedico] = useState(null)
+  const [selectedMedicoLeads, setSelectedMedicoLeads] = useState([])
+  const [showMedicoLeads, setShowMedicoLeads] = useState(false)
+  const [loadingMedicoLeads, setLoadingMedicoLeads] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -49,6 +71,39 @@ const Relatorios = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Função para carregar leads específicos de um médico
+  const loadMedicoLeads = async (medico) => {
+    try {
+      setLoadingMedicoLeads(true)
+      setSelectedMedico(medico)
+      
+      // Filtrar leads do médico específico
+      const medicoLeads = leads.filter(lead => lead.medico_agendado_id === medico.id)
+      
+      // Ordenar por data mais recente
+      const sortedLeads = medicoLeads.sort((a, b) => {
+        const dateA = new Date(a.data_registro_contato || 0)
+        const dateB = new Date(b.data_registro_contato || 0)
+        return dateB - dateA
+      })
+      
+      setSelectedMedicoLeads(sortedLeads)
+      setShowMedicoLeads(true)
+    } catch (err) {
+      console.error('Erro ao carregar leads do médico:', err)
+      setError('Erro ao carregar leads do médico.')
+    } finally {
+      setLoadingMedicoLeads(false)
+    }
+  }
+
+  // Fechar modal de leads
+  const closeMedicoLeads = () => {
+    setShowMedicoLeads(false)
+    setSelectedMedico(null)
+    setSelectedMedicoLeads([])
   }
 
   // Cálculos para métricas
@@ -90,8 +145,10 @@ const Relatorios = () => {
       const medicoLeads = leads.filter(lead => lead.medico_agendado_id === medico.id)
       stats[medico.nome] = {
         nome: medico.nome,
+        id: medico.id,
         total: medicoLeads.length,
-        convertidos: medicoLeads.filter(lead => lead.status === 'Convertido').length
+        convertidos: medicoLeads.filter(lead => lead.status === 'Convertido').length,
+        medico: medico // Adicionar objeto completo do médico
       }
     })
     return Object.values(stats).sort((a, b) => b.total - a.total)
@@ -115,6 +172,22 @@ const Relatorios = () => {
       style: 'currency',
       currency: 'BRL'
     }).format(value)
+  }
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Não informado'
+    const date = new Date(dateString)
+    return date.toLocaleDateString('pt-BR')
+  }
+
+  const getStatusBadgeColor = (status) => {
+    const colors = {
+      'Lead': 'bg-blue-100 text-blue-800',
+      'Agendado': 'bg-yellow-100 text-yellow-800',
+      'Convertido': 'bg-green-100 text-green-800',
+      'Perdido': 'bg-red-100 text-red-800'
+    }
+    return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
@@ -334,22 +407,30 @@ const Relatorios = () => {
         </Card>
       </div>
 
-      {/* Tabela de Performance dos Médicos */}
+      {/* Tabela de Performance dos Médicos - COM FUNCIONALIDADE DE CLIQUE */}
       <Card>
         <CardHeader>
           <CardTitle>Ranking de Médicos por Atendimentos</CardTitle>
+          <p className="text-sm text-gray-600">Clique no nome do médico para ver a lista de leads</p>
         </CardHeader>
         <CardContent>
           {medicosPorAtendimento().length > 0 ? (
             <div className="space-y-4">
               {medicosPorAtendimento().map((medico, index) => (
-                <div key={medico.nome} className="flex items-center justify-between p-4 border rounded-lg">
+                <div 
+                  key={medico.nome} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => loadMedicoLeads(medico.medico)}
+                >
                   <div className="flex items-center space-x-4">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 font-bold text-sm">{index + 1}</span>
                     </div>
                     <div>
-                      <p className="font-medium">{medico.nome}</p>
+                      <p className="font-medium text-blue-600 hover:text-blue-800 flex items-center">
+                        {medico.nome}
+                        <Eye className="h-4 w-4 ml-2" />
+                      </p>
                       <p className="text-sm text-gray-500">
                         {medico.total} leads • {medico.convertidos} convertidos
                       </p>
@@ -373,9 +454,125 @@ const Relatorios = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Modal/Painel de Leads por Médico */}
+      {showMedicoLeads && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="p-6 border-b bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Leads de {selectedMedico?.nome}
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    {selectedMedicoLeads.length} leads encontrados
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={closeMedicoLeads}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={closeMedicoLeads}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Conteúdo do Modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {loadingMedicoLeads ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="ml-2">Carregando leads...</span>
+                </div>
+              ) : selectedMedicoLeads.length > 0 ? (
+                <div className="space-y-4">
+                  {selectedMedicoLeads.map((lead) => (
+                    <Card key={lead.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <User className="h-5 w-5 text-gray-400" />
+                              <h3 className="font-semibold text-lg text-gray-900">
+                                {lead.nome_paciente}
+                              </h3>
+                              <Badge className={getStatusBadgeColor(lead.status)}>
+                                {lead.status}
+                              </Badge>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                              <div className="space-y-2">
+                                <div className="flex items-center text-sm text-gray-600">
+                                  <Phone className="h-4 w-4 mr-2" />
+                                  {lead.telefone || 'Não informado'}
+                                </div>
+                                <div className="flex items-center text-sm text-gray-600">
+                                  <Mail className="h-4 w-4 mr-2" />
+                                  {lead.email || 'Não informado'}
+                                </div>
+                                <div className="flex items-center text-sm text-gray-600">
+                                  <Calendar className="h-4 w-4 mr-2" />
+                                  {formatDate(lead.data_registro_contato)}
+                                </div>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">Canal:</span>
+                                  <span className="ml-2 text-gray-600">{lead.canal_contato || 'Não informado'}</span>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">Agendado:</span>
+                                  <span className="ml-2 text-gray-600">{lead.agendado ? 'Sim' : 'Não'}</span>
+                                </div>
+                                {lead.valor_orcado > 0 && (
+                                  <div className="text-sm">
+                                    <span className="font-medium text-gray-700">Valor:</span>
+                                    <span className="ml-2 text-gray-600">{formatCurrency(lead.valor_orcado)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {lead.solicitacao_paciente && (
+                              <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                <p className="text-sm text-gray-700">
+                                  <span className="font-medium">Solicitação:</span> {lead.solicitacao_paciente}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500">Nenhum lead encontrado para este médico.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
 export default Relatorios
-
