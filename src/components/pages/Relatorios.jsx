@@ -59,7 +59,7 @@ const Relatorios = () => {
   const [loadingMedicoLeads, setLoadingMedicoLeads] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   
-  // NOVO: Estados para filtro por período
+  // Estados para filtro por período
   const [showPeriodFilter, setShowPeriodFilter] = useState(false)
   const [periodFilter, setPeriodFilter] = useState({
     startDate: '',
@@ -72,7 +72,7 @@ const Relatorios = () => {
     loadData()
   }, [])
 
-  // NOVO: Aplicar filtro rápido de período
+  // Aplicar filtro rápido de período
   useEffect(() => {
     if (periodFilter.quickFilter) {
       const today = new Date()
@@ -118,7 +118,7 @@ const Relatorios = () => {
     }
   }, [periodFilter.quickFilter])
 
-  // NOVO: Filtrar leads por período quando as datas mudam
+  // Filtrar leads por período quando as datas mudam
   useEffect(() => {
     if (periodFilter.startDate && periodFilter.endDate) {
       filterLeadsByPeriod()
@@ -139,7 +139,7 @@ const Relatorios = () => {
       ])
       
       setLeads(leadsData)
-      setFilteredByPeriodLeads(leadsData) // Inicializar com todos os leads
+      setFilteredByPeriodLeads(leadsData)
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
     } catch (err) {
@@ -150,7 +150,7 @@ const Relatorios = () => {
     }
   }
 
-  // NOVO: Função para filtrar leads por período
+  // Função para filtrar leads por período
   const filterLeadsByPeriod = () => {
     if (!periodFilter.startDate || !periodFilter.endDate) {
       setFilteredByPeriodLeads(leads)
@@ -170,7 +170,7 @@ const Relatorios = () => {
     setFilteredByPeriodLeads(filtered)
   }
 
-  // NOVO: Limpar filtro de período
+  // Limpar filtro de período
   const clearPeriodFilter = () => {
     setPeriodFilter({
       startDate: '',
@@ -180,7 +180,7 @@ const Relatorios = () => {
     setFilteredByPeriodLeads(leads)
   }
 
-  // NOVO: Análise de pacientes novos vs recorrentes no período
+  // Análise de pacientes novos vs recorrentes no período
   const analyzePatientTypes = () => {
     const leadsToAnalyze = showPeriodFilter ? filteredByPeriodLeads : leads
     
@@ -214,7 +214,7 @@ const Relatorios = () => {
     }
   }
 
-  // NOVO: Dados para gráfico de comparação
+  // Dados para gráfico de comparação
   const getComparisonData = () => {
     const analysis = analyzePatientTypes()
     return [
@@ -235,7 +235,7 @@ const Relatorios = () => {
     ]
   }
 
-  // NOVO: Dados para gráfico de pizza
+  // Dados para gráfico de pizza
   const getPieData = () => {
     const analysis = analyzePatientTypes()
     return [
@@ -397,329 +397,6 @@ const Relatorios = () => {
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Carregando relatórios...</span>
       </div>
-
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Leads por Canal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Leads por Canal de Contato</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {leadsPorCanal().length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={leadsPorCanal()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="canal" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="quantidade" fill="#8884d8" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                Nenhum dado disponível
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Status dos Leads */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribuição por Status</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {leadsPorStatus().length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={leadsPorStatus()}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ status, quantidade }) => `${status}: ${quantidade}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="quantidade"
-                  >
-                    {leadsPorStatus().map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                Nenhum dado disponível
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Médicos por Atendimento */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Performance dos Médicos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {medicosPorAtendimento().length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={medicosPorAtendimento()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="nome" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="total" fill="#8884d8" name="Total de Leads" />
-                  <Bar dataKey="convertidos" fill="#82ca9d" name="Convertidos" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                Nenhum dado disponível
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Evolução Temporal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Evolução de Leads (Últimos 6 Meses)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {leadsPorMes().length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={leadsPorMes()}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="mes" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="quantidade" stroke="#8884d8" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                Nenhum dado disponível
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabela de Performance dos Médicos - COM FUNCIONALIDADE DE CLIQUE */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ranking de Médicos por Atendimentos</CardTitle>
-          <p className="text-sm text-gray-600">Clique no nome do médico para ver a lista de leads</p>
-        </CardHeader>
-        <CardContent>
-          {medicosPorAtendimento().length > 0 ? (
-            <div className="space-y-4">
-              {medicosPorAtendimento().map((medico, index) => (
-                <div 
-                  key={medico.nome} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                  onClick={() => loadMedicoLeads(medico.medico)}
-                >
-                  <div className="flex items-center space-x-4">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">{index + 1}</span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-blue-600 hover:text-blue-800 flex items-center">
-                        {medico.nome}
-                        <Eye className="h-4 w-4 ml-2" />
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {medico.total} leads • {medico.convertidos} convertidos
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold">
-                      {medico.total > 0 ? ((medico.convertidos / medico.total) * 100).toFixed(1) : 0}%
-                    </p>
-                    <p className="text-sm text-gray-500">Taxa de conversão</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">Nenhum dado de médicos disponível.</p>
-              <p className="text-gray-400 text-sm">Cadastre médicos e leads para ver os relatórios.</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modal/Painel de Leads por Médico */}
-      {showMedicoLeads && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
-            {/* Header do Modal */}
-            <div className="p-6 border-b bg-gray-50">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">
-                    Leads de {selectedMedico?.nome}
-                  </h2>
-                  <p className="text-gray-600 mt-1">
-                    {filteredMedicoLeads.length} de {selectedMedicoLeads.length} leads
-                    {searchTerm && ` (filtrados por "${searchTerm}")`}
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={closeMedicoLeads}
-                  >
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Voltar
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={closeMedicoLeads}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Barra de Pesquisa */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  type="text"
-                  placeholder="Pesquisar por nome, telefone, email, canal ou status..."
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-full"
-                />
-                {searchTerm && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleSearch('')}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            {/* Conteúdo do Modal */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {loadingMedicoLeads ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin" />
-                  <span className="ml-2">Carregando leads...</span>
-                </div>
-              ) : selectedMedicoLeads.length > 0 ? (
-                filteredMedicoLeads.length > 0 ? (
-                  <div className="space-y-4">
-                    {filteredMedicoLeads.map((lead) => (
-                    <Card key={lead.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-3 mb-2">
-                              <User className="h-5 w-5 text-gray-400" />
-                              <h3 className="font-semibold text-lg text-gray-900">
-                                {lead.nome_paciente}
-                              </h3>
-                              <Badge className={getStatusBadgeColor(lead.status)}>
-                                {lead.status}
-                              </Badge>
-                              {lead.tipo_visita && (
-                                <Badge variant={lead.tipo_visita === 'Recorrente' ? 'default' : 'outline'}>
-                                  {lead.tipo_visita}
-                                </Badge>
-                              )}
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                              <div className="space-y-2">
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Phone className="h-4 w-4 mr-2" />
-                                  {lead.telefone || 'Não informado'}
-                                </div>
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Mail className="h-4 w-4 mr-2" />
-                                  {lead.email || 'Não informado'}
-                                </div>
-                                <div className="flex items-center text-sm text-gray-600">
-                                  <Calendar className="h-4 w-4 mr-2" />
-                                  {formatDate(lead.data_registro_contato)}
-                                </div>
-                              </div>
-                              
-                              <div className="space-y-2">
-                                <div className="text-sm">
-                                  <span className="font-medium text-gray-700">Canal:</span>
-                                  <span className="ml-2 text-gray-600">{lead.canal_contato || 'Não informado'}</span>
-                                </div>
-                                <div className="text-sm">
-                                  <span className="font-medium text-gray-700">Agendado:</span>
-                                  <span className="ml-2 text-gray-600">{lead.agendado ? 'Sim' : 'Não'}</span>
-                                </div>
-                                {lead.valor_orcado > 0 && (
-                                  <div className="text-sm">
-                                    <span className="font-medium text-gray-700">Valor:</span>
-                                    <span className="ml-2 text-gray-600">{formatCurrency(lead.valor_orcado)}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            
-                            {lead.solicitacao_paciente && (
-                              <div className="mt-3 p-3 bg-gray-50 rounded-md">
-                                <p className="text-sm text-gray-700">
-                                  <span className="font-medium">Solicitação:</span> {lead.solicitacao_paciente}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <Search className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500">Nenhum lead encontrado para "{searchTerm}"</p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSearch('')}
-                      className="mt-2"
-                    >
-                      Limpar pesquisa
-                    </Button>
-                  </div>
-                )
-              ) : (
-                <div className="text-center py-12">
-                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">Nenhum lead encontrado para este médico.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-export default Relatorios
     )
   }
 
@@ -727,14 +404,12 @@ export default Relatorios
 
   return (
     <div className="space-y-6">
-      {/* Error Alert */}
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Header com botão de filtro */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
@@ -749,7 +424,6 @@ export default Relatorios
         </Button>
       </div>
 
-      {/* NOVO: Filtro por Período */}
       {showPeriodFilter && (
         <Card className="bg-blue-50 border-blue-200">
           <CardHeader>
@@ -769,7 +443,6 @@ export default Relatorios
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Filtros rápidos */}
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -815,7 +488,6 @@ export default Relatorios
               </Button>
             </div>
 
-            {/* Seleção de datas customizadas */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">Data Inicial</Label>
@@ -845,7 +517,6 @@ export default Relatorios
               </div>
             </div>
 
-            {/* Informações do período selecionado */}
             {periodFilter.startDate && periodFilter.endDate && (
               <div className="bg-white rounded-lg p-3">
                 <p className="text-sm text-gray-600">
@@ -860,7 +531,6 @@ export default Relatorios
         </Card>
       )}
 
-      {/* NOVO: Cards de Análise de Pacientes Novos vs Recorrentes */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="border-2 border-blue-200">
           <CardHeader className="bg-blue-50">
@@ -963,7 +633,6 @@ export default Relatorios
         </Card>
       </div>
 
-      {/* NOVO: Gráficos de Comparação */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -1012,7 +681,6 @@ export default Relatorios
         </Card>
       </div>
 
-      {/* KPIs Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -1037,3 +705,371 @@ export default Relatorios
             <p className="text-xs text-muted-foreground">
               {totalLeads > 0 ? ((agendados / totalLeads) * 100).toFixed(1) : 0}% do total
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Convertidos</CardTitle>
+            <Target className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{convertidos}</div>
+            <p className="text-xs text-muted-foreground">
+              {taxaConversao}% de conversão
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
+            <TrendingUp className="h-4 w-4 text-orange-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{taxaConversao}%</div>
+            <p className="text-xs text-muted-foreground">
+              Leads → Convertidos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Orçado</CardTitle>
+            <DollarSign className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(valorTotal)}</div>
+            <p className="text-xs text-muted-foreground">
+              Total em orçamentos
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Valor Convertido</CardTitle>
+            <DollarSign className="h-4 w-4 text-purple-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(valorConvertido)}</div>
+            <p className="text-xs text-muted-foreground">
+              {valorTotal > 0 ? ((valorConvertido / valorTotal) * 100).toFixed(1) : 0}% do orçado
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Leads por Canal de Contato</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {leadsPorCanal().length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={leadsPorCanal()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="canal" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="quantidade" fill="#8884d8" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                Nenhum dado disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição por Status</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {leadsPorStatus().length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={leadsPorStatus()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ status, quantidade }) => `${status}: ${quantidade}`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="quantidade"
+                  >
+                    {leadsPorStatus().map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                Nenhum dado disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Performance dos Médicos</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {medicosPorAtendimento().length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={medicosPorAtendimento()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="nome" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="total" fill="#8884d8" name="Total de Leads" />
+                  <Bar dataKey="convertidos" fill="#82ca9d" name="Convertidos" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                Nenhum dado disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Evolução de Leads (Últimos 6 Meses)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {leadsPorMes().length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={leadsPorMes()}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="mes" />
+                  <YAxis />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="quantidade" stroke="#8884d8" strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                Nenhum dado disponível
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Ranking de Médicos por Atendimentos</CardTitle>
+          <p className="text-sm text-gray-600">Clique no nome do médico para ver a lista de leads</p>
+        </CardHeader>
+        <CardContent>
+          {medicosPorAtendimento().length > 0 ? (
+            <div className="space-y-4">
+              {medicosPorAtendimento().map((medico, index) => (
+                <div 
+                  key={medico.nome} 
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                  onClick={() => loadMedicoLeads(medico.medico)}
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 font-bold text-sm">{index + 1}</span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-blue-600 hover:text-blue-800 flex items-center">
+                        {medico.nome}
+                        <Eye className="h-4 w-4 ml-2" />
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {medico.total} leads • {medico.convertidos} convertidos
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-lg font-bold">
+                      {medico.total > 0 ? ((medico.convertidos / medico.total) * 100).toFixed(1) : 0}%
+                    </p>
+                    <p className="text-sm text-gray-500">Taxa de conversão</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">Nenhum dado de médicos disponível.</p>
+              <p className="text-gray-400 text-sm">Cadastre médicos e leads para ver os relatórios.</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {showMedicoLeads && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b bg-gray-50">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Leads de {selectedMedico?.nome}
+                  </h2>
+                  <p className="text-gray-600 mt-1">
+                    {filteredMedicoLeads.length} de {selectedMedicoLeads.length} leads
+                    {searchTerm && ` (filtrados por "${searchTerm}")`}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={closeMedicoLeads}
+                  >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Voltar
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={closeMedicoLeads}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Pesquisar por nome, telefone, email, canal ou status..."
+                  value={searchTerm}
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="pl-10 pr-4 py-2 w-full"
+                />
+                {searchTerm && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSearch('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {loadingMedicoLeads ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                  <span className="ml-2">Carregando leads...</span>
+                </div>
+              ) : selectedMedicoLeads.length > 0 ? (
+                filteredMedicoLeads.length > 0 ? (
+                  <div className="space-y-4">
+                    {filteredMedicoLeads.map((lead) => (
+                      <Card key={lead.id} className="hover:shadow-md transition-shadow">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <User className="h-5 w-5 text-gray-400" />
+                                <h3 className="font-semibold text-lg text-gray-900">
+                                  {lead.nome_paciente}
+                                </h3>
+                                <Badge className={getStatusBadgeColor(lead.status)}>
+                                  {lead.status}
+                                </Badge>
+                                {lead.tipo_visita && (
+                                  <Badge variant={lead.tipo_visita === 'Recorrente' ? 'default' : 'outline'}>
+                                    {lead.tipo_visita}
+                                  </Badge>
+                                )}
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <div className="space-y-2">
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Phone className="h-4 w-4 mr-2" />
+                                    {lead.telefone || 'Não informado'}
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    {lead.email || 'Não informado'}
+                                  </div>
+                                  <div className="flex items-center text-sm text-gray-600">
+                                    <Calendar className="h-4 w-4 mr-2" />
+                                    {formatDate(lead.data_registro_contato)}
+                                  </div>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <div className="text-sm">
+                                    <span className="font-medium text-gray-700">Canal:</span>
+                                    <span className="ml-2 text-gray-600">{lead.canal_contato || 'Não informado'}</span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="font-medium text-gray-700">Agendado:</span>
+                                    <span className="ml-2 text-gray-600">{lead.agendado ? 'Sim' : 'Não'}</span>
+                                  </div>
+                                  {lead.valor_orcado > 0 && (
+                                    <div className="text-sm">
+                                      <span className="font-medium text-gray-700">Valor:</span>
+                                      <span className="ml-2 text-gray-600">{formatCurrency(lead.valor_orcado)}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              
+                              {lead.solicitacao_paciente && (
+                                <div className="mt-3 p-3 bg-gray-50 rounded-md">
+                                  <p className="text-sm text-gray-700">
+                                    <span className="font-medium">Solicitação:</span> {lead.solicitacao_paciente}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <Search className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                    <p className="text-gray-500">Nenhum lead encontrado para "{searchTerm}"</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleSearch('')}
+                      className="mt-2"
+                    >
+                      Limpar pesquisa
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-12">
+                  <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500">Nenhum lead encontrado para este médico.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default Relatorios
