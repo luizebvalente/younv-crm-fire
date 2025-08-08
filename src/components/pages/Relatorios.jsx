@@ -12,7 +12,8 @@ import {
   Pie,
   Cell,
   LineChart,
-  Line
+  Line,
+  Legend
 } from 'recharts'
 import { 
   Users, 
@@ -28,12 +29,19 @@ import {
   Mail,
   User,
   ArrowLeft,
-  Search
+  Search,
+  CalendarDays,
+  Download,
+  UserCheck,
+  RefreshCcw,
+  Filter
 } from 'lucide-react'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import firebaseDataService from '@/services/firebaseDataService'
 
 const Relatorios = () => {
@@ -50,10 +58,74 @@ const Relatorios = () => {
   const [showMedicoLeads, setShowMedicoLeads] = useState(false)
   const [loadingMedicoLeads, setLoadingMedicoLeads] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  
+  // NOVO: Estados para filtro por período
+  const [showPeriodFilter, setShowPeriodFilter] = useState(false)
+  const [periodFilter, setPeriodFilter] = useState({
+    startDate: '',
+    endDate: '',
+    quickFilter: ''
+  })
+  const [filteredByPeriodLeads, setFilteredByPeriodLeads] = useState([])
 
   useEffect(() => {
     loadData()
   }, [])
+
+  // NOVO: Aplicar filtro rápido de período
+  useEffect(() => {
+    if (periodFilter.quickFilter) {
+      const today = new Date()
+      let startDate = new Date()
+      let endDate = new Date()
+      
+      switch (periodFilter.quickFilter) {
+        case 'hoje':
+          startDate = new Date(today.setHours(0, 0, 0, 0))
+          endDate = new Date(today.setHours(23, 59, 59, 999))
+          break
+        case 'ontem':
+          startDate = new Date(today.setDate(today.getDate() - 1))
+          startDate.setHours(0, 0, 0, 0)
+          endDate = new Date(startDate)
+          endDate.setHours(23, 59, 59, 999)
+          break
+        case 'semana':
+          startDate = new Date(today.setDate(today.getDate() - 7))
+          endDate = new Date()
+          break
+        case 'mes':
+          startDate = new Date(today.setMonth(today.getMonth() - 1))
+          endDate = new Date()
+          break
+        case 'trimestre':
+          startDate = new Date(today.setMonth(today.getMonth() - 3))
+          endDate = new Date()
+          break
+        case 'ano':
+          startDate = new Date(today.setFullYear(today.getFullYear() - 1))
+          endDate = new Date()
+          break
+        default:
+          return
+      }
+      
+      setPeriodFilter(prev => ({
+        ...prev,
+        startDate: startDate.toISOString().split('T')[0],
+        endDate: endDate.toISOString().split('T')[0]
+      }))
+    }
+  }, [periodFilter.quickFilter])
+
+  // NOVO: Filtrar leads por período quando as datas mudam
+  useEffect(() => {
+    if (periodFilter.startDate && periodFilter.endDate) {
+      filterLeadsByPeriod()
+    } else {
+      setFilteredByPeriodLeads(leads)
+    }
+  }, [periodFilter.startDate, periodFilter.endDate, leads])
 
   const loadData = async () => {
     try {
@@ -67,6 +139,7 @@ const Relatorios = () => {
       ])
       
       setLeads(leadsData)
+      setFilteredByPeriodLeads(leadsData) // Inicializar com todos os leads
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
     } catch (err) {
@@ -77,17 +150,110 @@ const Relatorios = () => {
     }
   }
 
+  // NOVO: Função para filtrar leads por período
+  const filterLeadsByPeriod = () => {
+    if (!periodFilter.startDate || !periodFilter.endDate) {
+      setFilteredByPeriodLeads(leads)
+      return
+    }
+    
+    const start = new Date(periodFilter.startDate)
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(periodFilter.endDate)
+    end.setHours(23, 59, 59, 999)
+    
+    const filtered = leads.filter(lead => {
+      const leadDate = new Date(lead.data_registro_contato)
+      return leadDate >= start && leadDate <= end
+    })
+    
+    setFilteredByPeriodLeads(filtered)
+  }
+
+  // NOVO: Limpar filtro de período
+  const clearPeriodFilter = () => {
+    setPeriodFilter({
+      startDate: '',
+      endDate: '',
+      quickFilter: ''
+    })
+    setFilteredByPeriodLeads(leads)
+  }
+
+  // NOVO: Análise de pacientes novos vs recorrentes no período
+  const analyzePatientTypes = () => {
+    const leadsToAnalyze = showPeriodFilter ? filteredByPeriodLeads : leads
+    
+    const novos = leadsToAnalyze.filter(lead => lead.tipo_visita === 'Primeira Visita')
+    const recorrentes = leadsToAnalyze.filter(lead => lead.tipo_visita === 'Recorrente')
+    
+    const valorNovos = novos.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
+    const valorRecorrentes = recorrentes.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
+    
+    const convertidosNovos = novos.filter(lead => lead.status === 'Convertido')
+    const convertidosRecorrentes = recorrentes.filter(lead => lead.status === 'Convertido')
+    
+    const valorConvertidoNovos = convertidosNovos.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
+    const valorConvertidoRecorrentes = convertidosRecorrentes.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
+    
+    return {
+      novos: {
+        total: novos.length,
+        convertidos: convertidosNovos.length,
+        valorTotal: valorNovos,
+        valorConvertido: valorConvertidoNovos,
+        taxaConversao: novos.length > 0 ? ((convertidosNovos.length / novos.length) * 100).toFixed(1) : 0
+      },
+      recorrentes: {
+        total: recorrentes.length,
+        convertidos: convertidosRecorrentes.length,
+        valorTotal: valorRecorrentes,
+        valorConvertido: valorConvertidoRecorrentes,
+        taxaConversao: recorrentes.length > 0 ? ((convertidosRecorrentes.length / recorrentes.length) * 100).toFixed(1) : 0
+      }
+    }
+  }
+
+  // NOVO: Dados para gráfico de comparação
+  const getComparisonData = () => {
+    const analysis = analyzePatientTypes()
+    return [
+      {
+        tipo: 'Novos',
+        Quantidade: analysis.novos.total,
+        Convertidos: analysis.novos.convertidos,
+        'Valor Orçado': analysis.novos.valorTotal,
+        'Valor Convertido': analysis.novos.valorConvertido
+      },
+      {
+        tipo: 'Recorrentes',
+        Quantidade: analysis.recorrentes.total,
+        Convertidos: analysis.recorrentes.convertidos,
+        'Valor Orçado': analysis.recorrentes.valorTotal,
+        'Valor Convertido': analysis.recorrentes.valorConvertido
+      }
+    ]
+  }
+
+  // NOVO: Dados para gráfico de pizza
+  const getPieData = () => {
+    const analysis = analyzePatientTypes()
+    return [
+      { name: 'Pacientes Novos', value: analysis.novos.total, color: '#3B82F6' },
+      { name: 'Pacientes Recorrentes', value: analysis.recorrentes.total, color: '#10B981' }
+    ]
+  }
+
   // Função para carregar leads específicos de um médico
   const loadMedicoLeads = async (medico) => {
     try {
       setLoadingMedicoLeads(true)
       setSelectedMedico(medico)
-      setSearchTerm('') // Limpar pesquisa ao abrir
+      setSearchTerm('')
       
-      // Filtrar leads do médico específico
-      const medicoLeads = leads.filter(lead => lead.medico_agendado_id === medico.id)
+      const medicoLeads = (showPeriodFilter ? filteredByPeriodLeads : leads)
+        .filter(lead => lead.medico_agendado_id === medico.id)
       
-      // Ordenar por data mais recente
       const sortedLeads = medicoLeads.sort((a, b) => {
         const dateA = new Date(a.data_registro_contato || 0)
         const dateB = new Date(b.data_registro_contato || 0)
@@ -95,7 +261,7 @@ const Relatorios = () => {
       })
       
       setSelectedMedicoLeads(sortedLeads)
-      setFilteredMedicoLeads(sortedLeads) // Inicializar lista filtrada
+      setFilteredMedicoLeads(sortedLeads)
       setShowMedicoLeads(true)
     } catch (err) {
       console.error('Erro ao carregar leads do médico:', err)
@@ -138,20 +304,21 @@ const Relatorios = () => {
     setSearchTerm('')
   }
 
-  // Cálculos para métricas
-  const totalLeads = leads.length
-  const agendados = leads.filter(l => l.agendado).length
-  const convertidos = leads.filter(l => l.status === 'Convertido').length
+  // Cálculos para métricas (agora usando leads filtrados)
+  const leadsToAnalyze = showPeriodFilter ? filteredByPeriodLeads : leads
+  const totalLeads = leadsToAnalyze.length
+  const agendados = leadsToAnalyze.filter(l => l.agendado).length
+  const convertidos = leadsToAnalyze.filter(l => l.status === 'Convertido').length
   const taxaConversao = totalLeads > 0 ? ((convertidos / totalLeads) * 100).toFixed(1) : 0
-  const valorTotal = leads.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
-  const valorConvertido = leads
+  const valorTotal = leadsToAnalyze.reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
+  const valorConvertido = leadsToAnalyze
     .filter(l => l.status === 'Convertido')
     .reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
 
-  // Dados para gráficos
+  // Dados para gráficos (agora usando leads filtrados)
   const leadsPorCanal = () => {
     const canais = {}
-    leads.forEach(lead => {
+    leadsToAnalyze.forEach(lead => {
       canais[lead.canal_contato] = (canais[lead.canal_contato] || 0) + 1
     })
     return Object.entries(canais).map(([canal, quantidade]) => ({
@@ -162,7 +329,7 @@ const Relatorios = () => {
 
   const leadsPorStatus = () => {
     const status = {}
-    leads.forEach(lead => {
+    leadsToAnalyze.forEach(lead => {
       status[lead.status] = (status[lead.status] || 0) + 1
     })
     return Object.entries(status).map(([status, quantidade]) => ({
@@ -174,13 +341,13 @@ const Relatorios = () => {
   const medicosPorAtendimento = () => {
     const stats = {}
     medicos.forEach(medico => {
-      const medicoLeads = leads.filter(lead => lead.medico_agendado_id === medico.id)
+      const medicoLeads = leadsToAnalyze.filter(lead => lead.medico_agendado_id === medico.id)
       stats[medico.nome] = {
         nome: medico.nome,
         id: medico.id,
         total: medicoLeads.length,
         convertidos: medicoLeads.filter(lead => lead.status === 'Convertido').length,
-        medico: medico // Adicionar objeto completo do médico
+        medico: medico
       }
     })
     return Object.values(stats).sort((a, b) => b.total - a.total)
@@ -188,7 +355,7 @@ const Relatorios = () => {
 
   const leadsPorMes = () => {
     const meses = {}
-    leads.forEach(lead => {
+    leadsToAnalyze.forEach(lead => {
       const data = new Date(lead.data_registro_contato)
       const mesAno = `${data.getMonth() + 1}/${data.getFullYear()}`
       meses[mesAno] = (meses[mesAno] || 0) + 1
@@ -196,7 +363,7 @@ const Relatorios = () => {
     return Object.entries(meses).map(([mes, quantidade]) => ({
       mes,
       quantidade
-    })).slice(-6) // Últimos 6 meses
+    })).slice(-6)
   }
 
   const formatCurrency = (value) => {
@@ -229,104 +396,6 @@ const Relatorios = () => {
       <div className="flex items-center justify-center h-64">
         <Loader2 className="h-8 w-8 animate-spin" />
         <span className="ml-2">Carregando relatórios...</span>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
-        <p className="text-gray-600">Análises e métricas de performance</p>
-      </div>
-
-      {/* KPIs Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Leads</CardTitle>
-            <UserPlus className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalLeads}</div>
-            <p className="text-xs text-muted-foreground">
-              Todos os leads cadastrados
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Agendamentos</CardTitle>
-            <Calendar className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{agendados}</div>
-            <p className="text-xs text-muted-foreground">
-              {totalLeads > 0 ? ((agendados / totalLeads) * 100).toFixed(1) : 0}% do total
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Convertidos</CardTitle>
-            <Target className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{convertidos}</div>
-            <p className="text-xs text-muted-foreground">
-              {taxaConversao}% de conversão
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <TrendingUp className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{taxaConversao}%</div>
-            <p className="text-xs text-muted-foreground">
-              Leads → Convertidos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Orçado</CardTitle>
-            <DollarSign className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(valorTotal)}</div>
-            <p className="text-xs text-muted-foreground">
-              Total em orçamentos
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Convertido</CardTitle>
-            <DollarSign className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(valorConvertido)}</div>
-            <p className="text-xs text-muted-foreground">
-              {valorTotal > 0 ? ((valorConvertido / valorTotal) * 100).toFixed(1) : 0}% do orçado
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Gráficos */}
@@ -568,6 +637,11 @@ const Relatorios = () => {
                               <Badge className={getStatusBadgeColor(lead.status)}>
                                 {lead.status}
                               </Badge>
+                              {lead.tipo_visita && (
+                                <Badge variant={lead.tipo_visita === 'Recorrente' ? 'default' : 'outline'}>
+                                  {lead.tipo_visita}
+                                </Badge>
+                              )}
                             </div>
                             
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
@@ -646,3 +720,320 @@ const Relatorios = () => {
 }
 
 export default Relatorios
+    )
+  }
+
+  const patientAnalysis = analyzePatientTypes()
+
+  return (
+    <div className="space-y-6">
+      {/* Error Alert */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Header com botão de filtro */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Relatórios</h1>
+          <p className="text-gray-600">Análises e métricas de performance</p>
+        </div>
+        <Button
+          onClick={() => setShowPeriodFilter(!showPeriodFilter)}
+          variant={showPeriodFilter ? "default" : "outline"}
+        >
+          <Filter className="h-4 w-4 mr-2" />
+          Filtrar por Período
+        </Button>
+      </div>
+
+      {/* NOVO: Filtro por Período */}
+      {showPeriodFilter && (
+        <Card className="bg-blue-50 border-blue-200">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span className="flex items-center">
+                <CalendarDays className="h-5 w-5 mr-2" />
+                Filtrar por Período
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearPeriodFilter}
+              >
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                Limpar
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Filtros rápidos */}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'hoje' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'hoje' }))}
+              >
+                Hoje
+              </Button>
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'ontem' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'ontem' }))}
+              >
+                Ontem
+              </Button>
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'semana' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'semana' }))}
+              >
+                Última Semana
+              </Button>
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'mes' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'mes' }))}
+              >
+                Último Mês
+              </Button>
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'trimestre' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'trimestre' }))}
+              >
+                Último Trimestre
+              </Button>
+              <Button
+                size="sm"
+                variant={periodFilter.quickFilter === 'ano' ? 'default' : 'outline'}
+                onClick={() => setPeriodFilter(prev => ({ ...prev, quickFilter: 'ano' }))}
+              >
+                Último Ano
+              </Button>
+            </div>
+
+            {/* Seleção de datas customizadas */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Data Inicial</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={periodFilter.startDate}
+                  onChange={(e) => setPeriodFilter(prev => ({ 
+                    ...prev, 
+                    startDate: e.target.value,
+                    quickFilter: '' 
+                  }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endDate">Data Final</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={periodFilter.endDate}
+                  onChange={(e) => setPeriodFilter(prev => ({ 
+                    ...prev, 
+                    endDate: e.target.value,
+                    quickFilter: '' 
+                  }))}
+                />
+              </div>
+            </div>
+
+            {/* Informações do período selecionado */}
+            {periodFilter.startDate && periodFilter.endDate && (
+              <div className="bg-white rounded-lg p-3">
+                <p className="text-sm text-gray-600">
+                  Exibindo dados de <strong>{formatDate(periodFilter.startDate)}</strong> até <strong>{formatDate(periodFilter.endDate)}</strong>
+                </p>
+                <p className="text-sm text-blue-600 font-medium mt-1">
+                  {filteredByPeriodLeads.length} leads encontrados no período
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* NOVO: Cards de Análise de Pacientes Novos vs Recorrentes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="border-2 border-blue-200">
+          <CardHeader className="bg-blue-50">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center">
+                <UserPlus className="h-5 w-5 mr-2 text-blue-600" />
+                Pacientes Novos
+              </span>
+              <Badge className="bg-blue-600 text-white">
+                {patientAnalysis.novos.total} leads
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Total de Leads</p>
+                <p className="text-2xl font-bold text-gray-900">{patientAnalysis.novos.total}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Convertidos</p>
+                <p className="text-2xl font-bold text-green-600">{patientAnalysis.novos.convertidos}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Taxa de Conversão</span>
+                <span className="text-lg font-bold text-blue-600">{patientAnalysis.novos.taxaConversao}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full" 
+                  style={{ width: `${patientAnalysis.novos.taxaConversao}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Valor Total Orçado</span>
+                <span className="text-lg font-bold">{formatCurrency(patientAnalysis.novos.valorTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Valor Convertido</span>
+                <span className="text-lg font-bold text-green-600">{formatCurrency(patientAnalysis.novos.valorConvertido)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-2 border-green-200">
+          <CardHeader className="bg-green-50">
+            <CardTitle className="flex items-center justify-between">
+              <span className="flex items-center">
+                <UserCheck className="h-5 w-5 mr-2 text-green-600" />
+                Pacientes Recorrentes
+              </span>
+              <Badge className="bg-green-600 text-white">
+                {patientAnalysis.recorrentes.total} leads
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-gray-600">Total de Leads</p>
+                <p className="text-2xl font-bold text-gray-900">{patientAnalysis.recorrentes.total}</p>
+              </div>
+              <div>
+                <p className="text-sm text-gray-600">Convertidos</p>
+                <p className="text-2xl font-bold text-green-600">{patientAnalysis.recorrentes.convertidos}</p>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Taxa de Conversão</span>
+                <span className="text-lg font-bold text-green-600">{patientAnalysis.recorrentes.taxaConversao}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-green-600 h-2 rounded-full" 
+                  style={{ width: `${patientAnalysis.recorrentes.taxaConversao}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Valor Total Orçado</span>
+                <span className="text-lg font-bold">{formatCurrency(patientAnalysis.recorrentes.valorTotal)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Valor Convertido</span>
+                <span className="text-lg font-bold text-green-600">{formatCurrency(patientAnalysis.recorrentes.valorConvertido)}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* NOVO: Gráficos de Comparação */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Comparação: Novos vs Recorrentes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={getComparisonData()}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="tipo" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="Quantidade" fill="#3B82F6" />
+                <Bar dataKey="Convertidos" fill="#10B981" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Distribuição de Pacientes</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie
+                  data={getPieData()}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value, percent }) => `${name}: ${value} (${(percent * 100).toFixed(0)}%)`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {getPieData().map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* KPIs Principais */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total de Leads</CardTitle>
+            <UserPlus className="h-4 w-4 text-blue-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalLeads}</div>
+            <p className="text-xs text-muted-foreground">
+              {showPeriodFilter ? 'No período selecionado' : 'Todos os leads cadastrados'}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Agendamentos</CardTitle>
+            <Calendar className="h-4 w-4 text-green-600" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{agendados}</div>
+            <p className="text-xs text-muted-foreground">
+              {totalLeads > 0 ? ((agendados / totalLeads) * 100).toFixed(1) : 0}% do total
+            </p>
