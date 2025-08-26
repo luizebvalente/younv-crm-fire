@@ -150,9 +150,20 @@ const Header = ({ onMenuClick }) => {
               <p className="text-xs text-gray-500">{getUserRole(user)}</p>
             </div>
             
+            {/* Botão Sair direto */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLogout}
+              className="hidden sm:flex items-center gap-2 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+            >
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+            
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full sm:hidden">
                   <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
                     <span className="text-white font-medium text-sm">
                       {getUserInitials(user)}
@@ -206,6 +217,15 @@ const Header = ({ onMenuClick }) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Avatar apenas visual para desktop */}
+            <div className="hidden sm:block">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <span className="text-white font-medium text-sm">
+                  {getUserInitials(user)}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Last sync time */}
