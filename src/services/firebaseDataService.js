@@ -680,6 +680,52 @@ class FirebaseDataService {
     }
   }
 
+  // NOVO: Método para buscar dados paginados
+  async getPaginated(entity, options = {}) {
+    if (this.useFirebase) {
+      try {
+        console.log(`Buscando ${entity} paginado:`, options)
+        
+        const result = await firestoreService.getPaginated(this.getCollectionName(entity), options)
+        
+        // Transformar dados do Firebase para formato frontend
+        const transformedData = result.data.map(item => this.transformFromFirebase(entity, item))
+        
+        return {
+          ...result,
+          data: transformedData
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados paginados do Firebase:', error)
+        // Fallback: usar getAll e simular paginação
+        const allData = await this.getAll(entity)
+        const pageSize = options.pageSize || 10
+        const startIndex = options.page ? (options.page - 1) * pageSize : 0
+        const endIndex = startIndex + pageSize
+        
+        return {
+          data: allData.slice(startIndex, endIndex),
+          hasMore: endIndex < allData.length,
+          pageSize,
+          total: allData.length
+        }
+      }
+    } else {
+      // Implementação para localStorage
+      const allData = this.getFromLocalStorage(entity)
+      const pageSize = options.pageSize || 10
+      const startIndex = options.page ? (options.page - 1) * pageSize : 0
+      const endIndex = startIndex + pageSize
+      
+      return {
+        data: allData.slice(startIndex, endIndex),
+        hasMore: endIndex < allData.length,
+        pageSize,
+        total: allData.length
+      }
+    }
+  }
+
   async getById(entity, id) {
     if (this.useFirebase) {
       try {
