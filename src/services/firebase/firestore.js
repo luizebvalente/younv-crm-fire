@@ -11,6 +11,8 @@ import {
   where,
   orderBy,
   limit,
+  startAfter,
+  endBefore,
   onSnapshot,
   serverTimestamp,
   Timestamp
@@ -72,6 +74,131 @@ class FirestoreService {
           return results
         } catch (fallbackError) {
           console.error(`❌ Erro mesmo sem ordenação:`, fallbackError)
+          throw fallbackError
+        }
+      }
+      throw error
+    }
+  }
+
+  // NOVO: Obter documentos com paginação
+  async getPaginated(collectionName, options = {}) {
+    try {
+      const {
+        pageSize = 10,
+        lastDoc = null,
+        orderDirection = 'desc',
+        filters = []
+      } = options
+
+      let orderByField = options.orderByField || 'createdAt'
+
+      // Para leads, usar 'dataRegistroContato' como campo de ordenação principal
+      if (collectionName === 'leads') {
+        orderByField = 'dataRegistroContato'
+      }
+
+      console.log(`🔍 Buscando ${collectionName} paginado - Página de ${pageSize} itens`)
+      
+      let q = query(
+        collection(db, collectionName),
+        orderBy(orderByField, orderDirection)
+      )
+
+      // Aplicar filtros se fornecidos
+      filters.forEach(filter => {
+        if (filter.field && filter.operator && filter.value !== undefined) {
+          q = query(q, where(filter.field, filter.operator, filter.value))
+        }
+      })
+
+      // Aplicar limite
+      q = query(q, limit(pageSize))
+
+      // Se há um documento anterior, começar após ele
+      if (lastDoc) {
+        q = query(q, startAfter(lastDoc))
+      }
+
+      const querySnapshot = await getDocs(q)
+      
+      const results = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        ...this.convertTimestamps(doc.data())
+      }))
+
+      // Obter o último documento para próxima página
+      const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1]
+
+      // Verificar se há mais páginas fazendo uma consulta com +1 item
+      let hasMore = false
+      if (lastVisible) {
+        let nextQuery = query(
+          collection(db, collectionName),
+          orderBy(orderByField, orderDirection),
+          startAfter(lastVisible),
+          limit(1)
+        )
+        
+        // Aplicar os mesmos filtros para verificar se há mais
+        filters.forEach(filter => {
+          if (filter.field && filter.operator && filter.value !== undefined) {
+            nextQuery = query(nextQuery, where(filter.field, filter.operator, filter.value))
+          }
+        })
+
+        const nextSnapshot = await getDocs(nextQuery)
+        hasMore = !nextSnapshot.empty
+      }
+
+      console.log(`✅ Página carregada: ${results.length} documentos, hasMore: ${hasMore}`)
+      
+      return {
+        data: results,
+        lastDoc: lastVisible,
+        hasMore,
+        pageSize
+      }
+    } catch (error) {
+      console.error(`❌ Erro ao buscar ${collectionName} paginado:`, error)
+      
+      // Fallback: tentar buscar sem ordenação
+      if (error.code === 'failed-precondition' || error.message.includes('index')) {
+        console.log(`⚠️ Tentando buscar ${collectionName} paginado sem ordenação...`)
+        try {
+          let fallbackQuery = query(collection(db, collectionName), limit(options.pageSize || 10))
+          
+          if (lastDoc) {
+            fallbackQuery = query(fallbackQuery, startAfter(lastDoc))
+          }
+
+          const querySnapshot = await getDocs(fallbackQuery)
+          const results = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            ...this.convertTimestamps(doc.data())
+          }))
+
+          // Ordenar manualmente no cliente se for leads
+          if (collectionName === 'leads') {
+            results.sort((a, b) => {
+              const dateA = new Date(a.dataRegistroContato || a.createdAt || 0)
+              const dateB = new Date(b.dataRegistroContato || b.createdAt || 0)
+              return dateB - dateA
+            })
+          }
+
+          const lastVisible = querySnapshot.docs[querySnapshot.docs.length - 1]
+          
+          return {
+            data: results,
+            lastDoc: lastVisible,
+            hasMore: results.length === (options.pageSize || 10),
+            pageSize: options.pageSize || 10
+          }
+        } catch (fallbackError) {
+          console.error(`❌ Erro mesmo no fallback paginado:`, fallbackError)
           throw fallbackError
         }
       }
