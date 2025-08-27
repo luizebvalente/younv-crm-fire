@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle, User, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,11 @@ export default function Leads() {
   const [lastDoc, setLastDoc] = useState(null)
   const [criadoPorFilter, setCriadoPorFilter] = useState('Todos')
   const [usuarios, setUsuarios] = useState([])
+  
+  // NOVO: Estados para busca global
+  const [isSearching, setIsSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState([])
+  const [searchTotal, setSearchTotal] = useState(0)
 
   // NOVO: Hook de autenticação
   const { user } = useAuth()
@@ -304,6 +309,57 @@ export default function Leads() {
     await loadData(true) // true = resetar paginação
   }
 
+  // NOVA FUNÇÃO: Busca global em toda a base
+  const performGlobalSearch = async (term) => {
+    if (!term || term.trim().length === 0) {
+      // Se não há termo de busca, voltar para paginação normal
+      setIsSearching(false)
+      setSearchResults([])
+      setSearchTotal(0)
+      await reloadData()
+      return
+    }
+
+    try {
+      setIsSearching(true)
+      setLoading(true)
+      
+      console.log(`🔍 Realizando busca global por: "${term}"`)
+      
+      const result = await firebaseDataService.searchGlobal('leads', term.trim())
+      
+      setSearchResults(result.data)
+      setSearchTotal(result.total)
+      
+      console.log(`✅ Busca global encontrou ${result.total} resultados`)
+      
+    } catch (error) {
+      console.error('Erro na busca global:', error)
+      setError('Erro ao realizar busca: ' + error.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // NOVA FUNÇÃO: Debounce para busca
+  const debouncedSearch = useCallback(
+    (() => {
+      let timeoutId
+      return (term) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
+          performGlobalSearch(term)
+        }, 500)
+      }
+    })(),
+    []
+  )
+
+  // Effect para busca com debounce
+  useEffect(() => {
+    debouncedSearch(searchTerm)
+  }, [searchTerm, debouncedSearch])
+
   const checkExistingPatient = async (telefone) => {
     if (!telefone || telefone.length < 10) {
       setExistingPatient(null)
@@ -503,25 +559,40 @@ export default function Leads() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // FILTEREDLEADS CORRIGIDO - INCLUI FILTRO POR TAGS
-  const filteredLeads = leads.filter(lead => {
-    const matchesSearch = lead.nome_paciente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lead.telefone?.includes(searchTerm) ||
-                         lead.email?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
+  // FILTEREDLEADS CORRIGIDO - USA BUSCA GLOBAL OU FILTROS LOCAIS
+  const filteredLeads = (() => {
+    // Se está fazendo busca global, usar resultados da busca
+    if (isSearching && searchTerm.trim().length > 0) {
+      return searchResults.filter(lead => {
+        const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
+        const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por === criadoPorFilter
+        
+        // NOVO: Filtro por tags
+        const matchesTags = selectedTagsFilter.length === 0 || 
+                           selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
+        
+        return matchesStatus && matchesCriadoPor && matchesTags
+      })
+    }
     
-    // NOVO: Filtro por tags
-    const matchesTags = selectedTagsFilter.length === 0 || 
-                       selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
-    
-    return matchesSearch && matchesStatus && matchesTags
-  })
+    // Se não há busca, usar filtros locais nos dados paginados
+    return leads.filter(lead => {
+      const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
+      const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por === criadoPorFilter
+      
+      // NOVO: Filtro por tags
+      const matchesTags = selectedTagsFilter.length === 0 || 
+                         selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
+      
+      return matchesStatus && matchesCriadoPor && matchesTags
+    })
+  })()
 
   const stats = {
-    total: leads.length,
-    agendados: leads.filter(lead => lead.status === 'Agendado').length,
-    convertidos: leads.filter(lead => lead.status === 'Convertido').length,
-    valorTotal: leads.filter(lead => lead.status === 'Convertido')
+    total: isSearching && searchTerm.trim().length > 0 ? searchTotal : totalLeads,
+    agendados: filteredLeads.filter(lead => lead.status === 'Agendado').length,
+    convertidos: filteredLeads.filter(lead => lead.status === 'Convertido').length,
+    valorTotal: filteredLeads.filter(lead => lead.status === 'Convertido')
                     .reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
   }
 
@@ -1659,8 +1730,17 @@ export default function Leads() {
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="text-sm text-muted-foreground">
-                    Mostrando {leads.length} leads
-                    {totalLeads > 0 && ` de ${totalLeads} total`}
+                    {isSearching && searchTerm.trim().length > 0 ? (
+                      <>
+                        Encontrados {filteredLeads.length} resultados para "{searchTerm}"
+                        {searchTotal > filteredLeads.length && ` (${searchTotal} no total)`}
+                      </>
+                    ) : (
+                      <>
+                        Mostrando {leads.length} leads
+                        {totalLeads > 0 && ` de ${totalLeads} total`}
+                      </>
+                    )}
                   </div>
                   
                   <Select value={pageSize.toString()} onValueChange={(value) => {
