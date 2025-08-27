@@ -206,6 +206,108 @@ class FirestoreService {
     }
   }
 
+  // NOVO: Buscar documentos com texto em toda a base
+  async searchGlobal(collectionName, searchTerm, options = {}) {
+    try {
+      const {
+        pageSize = 50, // Busca retorna mais resultados por padrão
+        orderByField = 'createdAt',
+        orderDirection = 'desc'
+      } = options
+
+      // Para leads, usar 'dataRegistroContato' como campo de ordenação principal
+      let finalOrderField = orderByField
+      if (collectionName === 'leads') {
+        finalOrderField = 'dataRegistroContato'
+      }
+
+      console.log(`🔍 Buscando "${searchTerm}" em ${collectionName}`)
+
+      // Criar query básica
+      let searchQuery = query(
+        collection(db, collectionName),
+        orderBy(finalOrderField, orderDirection),
+        limit(pageSize)
+      )
+
+      const querySnapshot = await getDocs(searchQuery)
+      const allResults = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        ...this.convertTimestamps(doc.data())
+      }))
+
+      // Filtrar resultados localmente por texto
+      const searchTermLower = searchTerm.toLowerCase()
+      const filteredResults = allResults.filter(item => {
+        if (collectionName === 'leads') {
+          return (
+            item.nome_paciente?.toLowerCase().includes(searchTermLower) ||
+            item.telefone?.includes(searchTerm) ||
+            item.email?.toLowerCase().includes(searchTermLower) ||
+            item.canal_contato?.toLowerCase().includes(searchTermLower) ||
+            item.status?.toLowerCase().includes(searchTermLower)
+          )
+        }
+        
+        // Para outras coleções, buscar em campos comuns
+        return (
+          item.nome?.toLowerCase().includes(searchTermLower) ||
+          item.email?.toLowerCase().includes(searchTermLower) ||
+          item.descricao?.toLowerCase().includes(searchTermLower)
+        )
+      })
+
+      console.log(`✅ Busca global encontrou ${filteredResults.length} resultados para "${searchTerm}"`)
+
+      return {
+        data: filteredResults,
+        total: filteredResults.length,
+        searchTerm: searchTerm
+      }
+    } catch (error) {
+      console.error(`❌ Erro na busca global em ${collectionName}:`, error)
+      
+      // Fallback: buscar sem ordenação
+      try {
+        console.log(`⚠️ Tentando busca global sem ordenação...`)
+        let fallbackQuery = query(collection(db, collectionName), limit(options.pageSize || 50))
+        
+        const querySnapshot = await getDocs(fallbackQuery)
+        const allResults = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          ...this.convertTimestamps(doc.data())
+        }))
+
+        // Filtrar resultados localmente
+        const searchTermLower = searchTerm.toLowerCase()
+        const filteredResults = allResults.filter(item => {
+          if (collectionName === 'leads') {
+            return (
+              item.nome_paciente?.toLowerCase().includes(searchTermLower) ||
+              item.telefone?.includes(searchTerm) ||
+              item.email?.toLowerCase().includes(searchTermLower)
+            )
+          }
+          return (
+            item.nome?.toLowerCase().includes(searchTermLower) ||
+            item.email?.toLowerCase().includes(searchTermLower)
+          )
+        })
+
+        return {
+          data: filteredResults,
+          total: filteredResults.length,
+          searchTerm: searchTerm
+        }
+      } catch (fallbackError) {
+        console.error(`❌ Erro mesmo no fallback de busca:`, fallbackError)
+        throw fallbackError
+      }
+    }
+  }
+
   // Obter documento por ID
   async getById(collectionName, id) {
     try {
