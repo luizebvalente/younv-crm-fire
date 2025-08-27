@@ -14,6 +14,7 @@ import firebaseDataService from '@/services/firebaseDataService'
 
 export default function Leads() {
   const [leads, setLeads] = useState([])
+  const [allLeads, setAllLeads] = useState([]) // NOVO: Manter todos os leads carregados para filtros locais
   const [medicos, setMedicos] = useState([])
   const [especialidades, setEspecialidades] = useState([])
   const [procedimentos, setProcedimentos] = useState([])
@@ -40,22 +41,10 @@ export default function Leads() {
   const [existingPatient, setExistingPatient] = useState(null)
   const [activeTab, setActiveTab] = useState('leads')
 
-  // NOVOS ESTADOS PARA PAGINAÇÃO
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
-  const [totalLeads, setTotalLeads] = useState(0)
-  const [hasMorePages, setHasMorePages] = useState(false)
-  const [lastDoc, setLastDoc] = useState(null)
+  // NOVOS ESTADOS PARA FILTROS CORRIGIDOS
   const [criadoPorFilter, setCriadoPorFilter] = useState('Todos')
   const [usuarios, setUsuarios] = useState([])
-  
-  // NOVO: Estados para busca global
-  const [isSearching, setIsSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState([])
-  const [searchTotal, setSearchTotal] = useState(0)
-
-  // NOVO: Estado para controlar "ver todos"
-  const [showAllLeads, setShowAllLeads] = useState(false)
+  const [isFilteringLocally, setIsFilteringLocally] = useState(false) // NOVO: Flag para indicar se está filtrando localmente
 
   // NOVO: Hook de autenticação
   const { user } = useAuth()
@@ -169,7 +158,7 @@ export default function Leads() {
       if (result.success) {
         console.log('✅ Migração de tags concluída:', result)
         await loadData()
-        alert(`${result.message}\n\nEstatísticas:\n- Total: ${result.stats.total}\n- Migrados: ${result.stats.migrated}\n- Erros: ${result.stats.errors}`)
+        alert(`${result.message}\n\nEstatísticas:\n- Total: ${result.stats.total}\n- Migrados: ${result.stats.migrados}\n- Erros: ${result.stats.errors}`)
       } else {
         console.error('❌ Erro na migração de tags:', result)
         setError(result.message)
@@ -203,17 +192,8 @@ export default function Leads() {
   }
 
   useEffect(() => {
-    loadData(true) // true = resetar paginação na primeira carga
+    loadData()
   }, [])
-
-  // NOVO: Recarregar dados quando filtros mudarem (SIMPLIFICADO)
-  useEffect(() => {
-    // Sempre recarregar quando filtros mudarem, exceto na primeira carga
-    if (criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') {
-      console.log('🔄 Filtros aplicados, recarregando dados:', { criadoPorFilter, statusFilter })
-      loadData(true) // Resetar paginação e recarregar
-    }
-  }, [criadoPorFilter, statusFilter])
 
   // Configurar dados do usuário atual no window para o serviço
   useEffect(() => {
@@ -228,77 +208,35 @@ export default function Leads() {
     }
   }, [user])
 
-  // LOADDATA MODIFICADO PARA PAGINAÇÃO
-  const loadData = async (resetPagination = false) => {
+  // FUNÇÃO LOADDATA CORRIGIDA - Carrega TODOS os leads para filtros locais
+  const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
-      setShowAllLeads(false) // Resetar modo "ver todos"
       
-      // Se resetar paginação, voltar para primeira página
-      if (resetPagination) {
-        setCurrentPage(1)
-        setLastDoc(null)
-      }
-
-      // Preparar filtros para a consulta
-      const filters = []
+      console.log('🔄 Carregando todos os dados para filtros...')
       
-      // Filtro por usuário criador
-      if (criadoPorFilter !== 'Todos') {
-        filters.push({
-          field: 'criado_por_id',
-          operator: '==',
-          value: criadoPorFilter
-        })
-      }
-
-      // NOVO: Filtro por status
-      if (statusFilter !== 'Todos') {
-        filters.push({
-          field: 'status',
-          operator: '==',
-          value: statusFilter
-        })
-      }
-
-      // Carregar dados auxiliares (médicos, especialidades, etc.) - sem paginação
-      const [medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
+      // Carregar TODOS os dados (não usar paginação para filtros funcionarem)
+      const [leadsData, medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
+        firebaseDataService.getAll('leads'), // Carregar TODOS os leads
         firebaseDataService.getAll('medicos'),
         firebaseDataService.getAll('especialidades'),
         firebaseDataService.getAll('procedimentos'),
         firebaseDataService.getAll('tags')
       ])
       
-      // Carregar leads com paginação
-      const leadsResult = await firebaseDataService.getPaginated('leads', {
-        pageSize,
-        lastDoc: resetPagination ? null : lastDoc,
-        filters
-      })
+      console.log(`✅ Carregados ${leadsData.length} leads no total`)
       
-      // Se resetar paginação, substituir leads; senão, adicionar à lista existente
-      if (resetPagination) {
-        setLeads(leadsResult.data)
-      } else {
-        setLeads(prev => [...prev, ...leadsResult.data])
-      }
-      
+      setAllLeads(leadsData) // Manter TODOS os leads
+      setLeads(leadsData)    // Inicialmente mostrar todos
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
       setProcedimentos(procedimentosData)
       setTags(tagsData)
       
-      // Atualizar estados de paginação
-      setHasMorePages(leadsResult.hasMore)
-      setLastDoc(leadsResult.lastDoc)
-      setTotalLeads(leadsResult.total || 0)
-
       // Extrair lista única de usuários criadores para o filtro
-      // NOVO: Carregar todos os usuários de toda a base, não apenas da página atual
-      const allLeadsForUsers = await firebaseDataService.getAll('leads')
       const uniqueUsers = [...new Map(
-        allLeadsForUsers
+        leadsData
           .filter(lead => lead.criado_por_nome && lead.criado_por_id)
           .map(lead => [lead.criado_por_id, { id: lead.criado_por_id, nome: lead.criado_por_nome }])
       ).values()]
@@ -312,154 +250,91 @@ export default function Leads() {
     }
   }
 
-  // NOVA FUNÇÃO: Carregar próxima página
-  const loadNextPage = async () => {
-    if (!hasMorePages || loading) return
+  // NOVA FUNÇÃO: Aplicar todos os filtros localmente
+  const applyFilters = useCallback(() => {
+    console.log('🔍 Aplicando filtros locais...', {
+      searchTerm,
+      statusFilter,
+      criadoPorFilter,
+      selectedTagsFilter
+    })
+
+    let filteredResults = [...allLeads]
+
+    // Filtro por busca de texto
+    if (searchTerm.trim().length > 0) {
+      const searchLower = searchTerm.toLowerCase()
+      filteredResults = filteredResults.filter(lead => 
+        lead.nome_paciente?.toLowerCase().includes(searchLower) ||
+        lead.telefone?.includes(searchTerm) ||
+        lead.email?.toLowerCase().includes(searchLower) ||
+        lead.canal_contato?.toLowerCase().includes(searchLower) ||
+        lead.status?.toLowerCase().includes(searchLower) ||
+        lead.solicitacao_paciente?.toLowerCase().includes(searchLower)
+      )
+    }
+
+    // Filtro por status
+    if (statusFilter !== 'Todos') {
+      filteredResults = filteredResults.filter(lead => lead.status === statusFilter)
+    }
+
+    // Filtro por usuário criador
+    if (criadoPorFilter !== 'Todos') {
+      filteredResults = filteredResults.filter(lead => lead.criado_por_id === criadoPorFilter)
+    }
+
+    // Filtro por tags
+    if (selectedTagsFilter.length > 0) {
+      filteredResults = filteredResults.filter(lead => 
+        selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
+      )
+    }
+
+    console.log(`✅ Filtros aplicados: ${filteredResults.length} de ${allLeads.length} leads`)
     
-    setCurrentPage(prev => prev + 1)
-    await loadData(false) // false = não resetar paginação
-  }
+    setLeads(filteredResults)
+    setIsFilteringLocally(true)
+  }, [allLeads, searchTerm, statusFilter, criadoPorFilter, selectedTagsFilter])
 
-  // NOVA FUNÇÃO: Resetar e recarregar dados
-  const reloadData = async () => {
-    setCurrentPage(1)
-    setLastDoc(null)
-    await loadData(true) // true = resetar paginação
-  }
-
-  // NOVA FUNÇÃO: Carregar todos os leads
-  const loadAllLeads = async () => {
-    try {
-      setLoading(true)
-      setShowAllLeads(true)
-      
-      // Preparar filtros para a consulta
-      const filters = []
-      
-      // Filtro por usuário criador
-      if (criadoPorFilter !== 'Todos') {
-        filters.push({
-          field: 'criado_por_id',
-          operator: '==',
-          value: criadoPorFilter
-        })
-      }
-
-      // Filtro por status
-      if (statusFilter !== 'Todos') {
-        filters.push({
-          field: 'status',
-          operator: '==',
-          value: statusFilter
-        })
-      }
-
-      // Carregar TODOS os leads com filtros aplicados
-      let allLeads = []
-      if (filters.length > 0) {
-        // Se há filtros, usar getAll e aplicar filtros localmente
-        const allData = await firebaseDataService.getAll('leads')
-        allLeads = allData.filter(lead => {
-          return filters.every(filter => {
-            const fieldValue = lead[filter.field]
-            switch (filter.operator) {
-              case '==':
-                return fieldValue === filter.value
-              default:
-                return true
-            }
-          })
-        })
-      } else {
-        // Se não há filtros, carregar todos
-        allLeads = await firebaseDataService.getAll('leads')
-      }
-
-      setLeads(allLeads)
-      setTotalLeads(allLeads.length)
-      setHasMorePages(false) // Não há mais páginas quando mostra todos
-      
-      console.log(`📊 Carregados ${allLeads.length} leads (TODOS)`)
-      
-    } catch (err) {
-      console.error('Erro ao carregar todos os leads:', err)
-      setError('Erro ao carregar todos os leads. Tente novamente.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // NOVA FUNÇÃO: Busca global em toda a base
-  const performGlobalSearch = async (term) => {
-    if (!term || term.trim().length === 0) {
-      // Se não há termo de busca, voltar para paginação normal
-      setIsSearching(false)
-      setSearchResults([])
-      setSearchTotal(0)
-      await reloadData()
-      return
-    }
-
-    try {
-      setIsSearching(true)
-      setLoading(true)
-      
-      console.log(`🔍 Realizando busca global por: "${term}"`)
-      
-      const result = await firebaseDataService.searchGlobal('leads', term.trim())
-      
-      setSearchResults(result.data)
-      setSearchTotal(result.total)
-      
-      console.log(`✅ Busca global encontrou ${result.total} resultados`)
-      
-    } catch (error) {
-      console.error('Erro na busca global:', error)
-      setError('Erro ao realizar busca: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // NOVA FUNÇÃO: Debounce para busca
-  const debouncedSearch = useCallback(
-    (() => {
-      let timeoutId
-      return (term) => {
-        clearTimeout(timeoutId)
-        timeoutId = setTimeout(() => {
-          performGlobalSearch(term)
-        }, 500)
-      }
-    })(),
-    []
-  )
-
-  // Effect para busca com debounce
+  // Effect para aplicar filtros quando mudarem
   useEffect(() => {
-    debouncedSearch(searchTerm)
-  }, [searchTerm, debouncedSearch])
+    if (allLeads.length > 0) {
+      applyFilters()
+    }
+  }, [applyFilters, allLeads])
+
+  // NOVA FUNÇÃO: Limpar todos os filtros
+  const clearAllFilters = () => {
+    console.log('🧹 Limpando todos os filtros')
+    setSearchTerm('')
+    setStatusFilter('Todos')
+    setCriadoPorFilter('Todos')
+    setSelectedTagsFilter([])
+    setLeads(allLeads)
+    setIsFilteringLocally(false)
+  }
 
   const checkExistingPatient = async (telefone) => {
     if (!telefone || telefone.length < 10) {
       setExistingPatient(null)
-      return false // Retorna false se não há duplicação
+      return false
     }
 
     try {
       const cleanPhone = telefone.replace(/\D/g, '')
-      const existingLead = leads.find(lead => 
+      const existingLead = allLeads.find(lead => 
         lead.telefone && lead.telefone.replace(/\D/g, '') === cleanPhone
       )
       
       if (existingLead && (!editingItem || existingLead.id !== editingItem.id)) {
         setExistingPatient(existingLead)
         setFormData(prev => ({ ...prev, tipo_visita: 'Recorrente' }))
-        return true // Retorna true se há duplicação
+        return true
       } else {
         setExistingPatient(null)
         setFormData(prev => ({ ...prev, tipo_visita: 'Primeira Visita' }))
-        return false // Retorna false se não há duplicação
+        return false
       }
     } catch (err) {
       console.error('Erro ao verificar paciente existente:', err)
@@ -525,7 +400,7 @@ export default function Leads() {
         await firebaseDataService.create('leads', dataToSave)
       }
       
-      await reloadData() // Recarregar dados com paginação resetada
+      await loadData() // Recarregar todos os dados
       resetForm()
     } catch (err) {
       console.error('Erro ao salvar lead:', err)
@@ -579,7 +454,7 @@ export default function Leads() {
       try {
         setError(null)
         await firebaseDataService.delete('leads', id)
-        await reloadData() // Recarregar dados com paginação resetada
+        await loadData() // Recarregar todos os dados
       } catch (err) {
         console.error('Erro ao excluir lead:', err)
         setError('Erro ao excluir lead. Tente novamente.')
@@ -639,38 +514,13 @@ export default function Leads() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // FILTEREDLEADS CORRIGIDO - USA BUSCA GLOBAL OU FILTROS GLOBAIS
-  const filteredLeads = (() => {
-    // Se está fazendo busca global, usar resultados da busca
-    if (isSearching && searchTerm.trim().length > 0) {
-      return searchResults.filter(lead => {
-        const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
-        const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por_id === criadoPorFilter
-        
-        // NOVO: Filtro por tags
-        const matchesTags = selectedTagsFilter.length === 0 || 
-                           selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
-        
-        return matchesStatus && matchesCriadoPor && matchesTags
-      })
-    }
-    
-    // Se não há busca, os dados já vêm filtrados da consulta global
-    // Aplicar apenas filtros que não foram aplicados globalmente (como tags)
-    return leads.filter(lead => {
-      // NOVO: Filtro por tags (único filtro local necessário)
-      const matchesTags = selectedTagsFilter.length === 0 || 
-                         selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
-      
-      return matchesTags
-    })
-  })()
-
+  // ESTATÍSTICAS BASEADAS NOS LEADS FILTRADOS (CORRIGIDO)
   const stats = {
-    total: isSearching && searchTerm.trim().length > 0 ? searchTotal : totalLeads,
-    agendados: filteredLeads.filter(lead => lead.status === 'Agendado').length,
-    convertidos: filteredLeads.filter(lead => lead.status === 'Convertido').length,
-    valorTotal: filteredLeads.filter(lead => lead.status === 'Convertido')
+    total: leads.length, // Usar leads filtrados
+    totalDatabase: allLeads.length, // Total na base de dados
+    agendados: leads.filter(lead => lead.status === 'Agendado').length,
+    convertidos: leads.filter(lead => lead.status === 'Convertido').length,
+    valorTotal: leads.filter(lead => lead.status === 'Convertido')
                     .reduce((sum, lead) => sum + (lead.valor_orcado || 0), 0)
   }
 
@@ -721,7 +571,7 @@ export default function Leads() {
 
   const handleDeleteTag = async (tagId) => {
     const tag = tags.find(t => t.id === tagId)
-    const leadCount = leads.filter(lead => lead.tags?.includes(tagId)).length
+    const leadCount = allLeads.filter(lead => lead.tags?.includes(tagId)).length
     
     const confirmMessage = leadCount > 0 
       ? `Tem certeza que deseja excluir a tag "${tag.nome}"?\n\nEla será removida de ${leadCount} leads.`
@@ -889,7 +739,7 @@ export default function Leads() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {tagsCategoria.map(tag => {
-                    const leadCount = leads.filter(lead => lead.tags?.includes(tag.id)).length
+                    const leadCount = allLeads.filter(lead => lead.tags?.includes(tag.id)).length
                     
                     return (
                       <div key={tag.id} className="bg-gray-50 rounded-lg border p-4">
@@ -970,7 +820,7 @@ export default function Leads() {
             onClick={() => setActiveTab('leads')}
           >
             <Users className="mr-2 h-4 w-4" />
-            Leads ({leads.length})
+            Leads ({stats.totalDatabase})
           </Button>
           <Button
             variant={activeTab === 'tags' ? 'default' : 'outline'}
@@ -989,6 +839,11 @@ export default function Leads() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold">Lista de Leads</h2>
+              {isFilteringLocally && (
+                <p className="text-sm text-blue-600 mt-1">
+                  Mostrando {stats.total} de {stats.totalDatabase} leads (filtros aplicados)
+                </p>
+              )}
             </div>
             <div className="flex gap-2">
               <Button 
@@ -1521,7 +1376,9 @@ export default function Leads() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">Total de Leads</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-700">
+                  {isFilteringLocally ? 'Leads Filtrados' : 'Total de Leads'}
+                </CardTitle>
                 <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                   <Users className="h-5 w-5 text-white" />
                 </div>
@@ -1529,8 +1386,17 @@ export default function Leads() {
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
                 <p className="text-sm text-gray-600 mt-2 flex items-center">
-                  <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-                  <span className="text-green-600 font-medium">Ativos</span>
+                  {isFilteringLocally ? (
+                    <>
+                      <Filter className="h-4 w-4 text-blue-600 mr-1" />
+                      <span className="text-blue-600 font-medium">de {stats.totalDatabase} total</span>
+                    </>
+                  ) : (
+                    <>
+                      <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                      <span className="text-green-600 font-medium">Ativos</span>
+                    </>
+                  )}
                 </p>
               </CardContent>
             </Card>
@@ -1586,304 +1452,284 @@ export default function Leads() {
             </Card>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar pacientes, médicos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-8"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos</SelectItem>
-                <SelectItem value="Lead">Lead</SelectItem>
-                <SelectItem value="Agendado">Agendado</SelectItem>
-                <SelectItem value="Convertido">Convertido</SelectItem>
-                <SelectItem value="Perdido">Perdido</SelectItem>
-                <SelectItem value="Não Agendou">Não Agendou</SelectItem>
-                <SelectItem value="Confirmado">Confirmado</SelectItem>
-                <SelectItem value="Faltou">Faltou</SelectItem>
-              </SelectContent>
-            </Select>
-            
-            {/* NOVO: Filtro por Criado por */}
-            <Select value={criadoPorFilter} onValueChange={setCriadoPorFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Criado por" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Todos">Todos os usuários</SelectItem>
-                {usuarios.map(usuario => (
-                  <SelectItem key={usuario.id} value={usuario.id}>
-                    {usuario.nome}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Filtro por Tags */}
-          {tags.length > 0 && (
-            <Card className="bg-blue-50">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold text-blue-800">Filtrar por Tags</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-2">
-                  {tags.map(tag => (
-                    <button
-                      key={tag.id}
-                      onClick={() => toggleTagFilter(tag.id)}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2 transition-all ${
-                        selectedTagsFilter.includes(tag.id)
-                          ? 'text-white border-transparent'
-                          : 'text-gray-700 bg-white border-gray-300 hover:border-gray-400'
-                      }`}
-                      style={{
-                        backgroundColor: selectedTagsFilter.includes(tag.id) ? tag.cor : 'white',
-                        borderColor: selectedTagsFilter.includes(tag.id) ? tag.cor : '#d1d5db'
-                      }}
-                    >
-                      <Tag className="h-3 w-3" />
-                      {tag.nome}
-                    </button>
-                  ))}
-                </div>
-                {selectedTagsFilter.length > 0 && (
-                  <button
-                    onClick={() => setSelectedTagsFilter([])}
-                    className="mt-2 text-sm text-blue-600 hover:text-blue-800"
+          {/* NOVA SEÇÃO DE FILTROS CORRIGIDA */}
+          <Card className="bg-gray-50">
+            <CardHeader className="pb-3">
+              <div className="flex justify-between items-center">
+                <CardTitle className="text-lg font-semibold">Filtros</CardTitle>
+                {isFilteringLocally && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearAllFilters}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
                   >
-                    Limpar filtros de tags
-                  </button>
+                    <X className="h-4 w-4 mr-2" />
+                    Limpar Filtros
+                  </Button>
                 )}
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Primeira linha de filtros */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="relative">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por nome, telefone, email..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8"
+                  />
+                </div>
+                
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todos os Status</SelectItem>
+                    <SelectItem value="Lead">Lead</SelectItem>
+                    <SelectItem value="Agendado">Agendado</SelectItem>
+                    <SelectItem value="Convertido">Convertido</SelectItem>
+                    <SelectItem value="Perdido">Perdido</SelectItem>
+                    <SelectItem value="Não Agendou">Não Agendou</SelectItem>
+                    <SelectItem value="Confirmado">Confirmado</SelectItem>
+                    <SelectItem value="Faltou">Faltou</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                <Select value={criadoPorFilter} onValueChange={setCriadoPorFilter}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Filtrar por criador" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Todos">Todos os Usuários</SelectItem>
+                    {usuarios.map(usuario => (
+                      <SelectItem key={usuario.id} value={usuario.id}>
+                        {usuario.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtros de Tags */}
+              {tags.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Filtrar por Tags</label>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map(tag => (
+                      <button
+                        key={tag.id}
+                        onClick={() => toggleTagFilter(tag.id)}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2 transition-all ${
+                          selectedTagsFilter.includes(tag.id)
+                            ? 'text-white border-transparent'
+                            : 'text-gray-700 bg-white border-gray-300 hover:border-gray-400'
+                        }`}
+                        style={{
+                          backgroundColor: selectedTagsFilter.includes(tag.id) ? tag.cor : 'white',
+                          borderColor: selectedTagsFilter.includes(tag.id) ? tag.cor : '#d1d5db'
+                        }}
+                      >
+                        <Tag className="h-3 w-3" />
+                        {tag.nome}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Indicador de Filtros Ativos */}
+              {isFilteringLocally && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-blue-800">
+                      <Filter className="h-4 w-4" />
+                      <span className="font-medium">Filtros ativos:</span>
+                      {searchTerm && <Badge variant="secondary">Busca: "{searchTerm}"</Badge>}
+                      {statusFilter !== 'Todos' && <Badge variant="secondary">Status: {statusFilter}</Badge>}
+                      {criadoPorFilter !== 'Todos' && (
+                        <Badge variant="secondary">
+                          Criado por: {usuarios.find(u => u.id === criadoPorFilter)?.nome}
+                        </Badge>
+                      )}
+                      {selectedTagsFilter.length > 0 && (
+                        <Badge variant="secondary">{selectedTagsFilter.length} tags</Badge>
+                      )}
+                    </div>
+                    <span className="text-sm text-blue-600 font-medium">
+                      {stats.total} de {stats.totalDatabase} leads
+                    </span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           {/* Leads Table */}
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Leads</CardTitle>
+              <div className="flex justify-between items-center">
+                <CardTitle>Lista de Leads</CardTitle>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <Users className="h-4 w-4" />
+                  <span>{leads.length} lead{leads.length !== 1 ? 's' : ''} exibido{leads.length !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-4">Paciente</th>
-                      <th className="text-left p-4">Contato</th>
-                      <th className="text-left p-4">Canal</th>
-                      <th className="text-left p-4">Médico/Especialidade</th>
-                      <th className="text-left p-4">Valor</th>
-                      <th className="text-left p-4">Tags</th>
-                      <th className="text-left p-4">Status</th>
-                      <th className="text-left p-4">Criado por</th>
-                      <th className="text-left p-4">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredLeads.map((lead) => {
-                      const medico = medicos.find(m => m.id === lead.medico_agendado_id)
-                      const especialidade = especialidades.find(e => e.id === lead.especialidade_id)
-                      
-                      return (
-                        <tr key={lead.id} className="border-b hover:bg-gray-50">
-                          <td className="p-4">
-                            <div>
-                              <div className="font-medium">{lead.nome_paciente}</div>
-                              <div className="text-sm text-gray-500">
-                                {new Date(lead.data_registro_contato).toLocaleDateString('pt-BR')}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <div className="text-sm">
-                              <div>📞 {lead.telefone}</div>
-                              <div>✉️ {lead.email}</div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="text-sm">{lead.canal_contato}</span>
-                          </td>
-                          <td className="p-4">
-                            <div className="text-sm">
-                              <div className="font-medium">{medico?.nome || 'N/A'}</div>
-                              <div className="text-gray-500">{especialidade?.nome || 'N/A'}</div>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="font-medium">
-                              R$ {(lead.valor_orcado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </span>
-                          </td>
-                          
-                          {/* Nova coluna de Tags */}
-                          <td className="p-4">
-                            <div className="flex flex-wrap gap-1 max-w-[150px]">
-                              {lead.tags?.map(tagId => {
-                                const tag = getTagById(tagId)
-                                return tag ? (
-                                  <span
-                                    key={tagId}
-                                    className="inline-flex items-center px-2 py-1 rounded-full text-white text-xs font-medium"
-                                    style={{ backgroundColor: tag.cor }}
-                                    title={tag.nome}
-                                  >
-                                    <Tag className="h-3 w-3 mr-1" />
-                                    {tag.nome.length > 8 ? tag.nome.substring(0, 8) + '...' : tag.nome}
-                                  </span>
-                                ) : null
-                              })}
-                              {(!lead.tags || lead.tags.length === 0) && (
-                                <span className="text-xs text-gray-400">Sem tags</span>
-                              )}
-                            </div>
-                          </td>
-                          
-                          <td className="p-4">
-                            <Badge className={getStatusColor(lead.status)}>
-                              {lead.status}
-                            </Badge>
-                          </td>
-
-                          {/* NOVA COLUNA: Criado por */}
-                          <td className="p-4">
-                            <div className="text-sm">
-                              <div className="flex items-center gap-1">
-                                <User className="h-3 w-3 text-gray-400" />
-                                <span className="font-medium">{lead.criado_por_nome || 'Sistema'}</span>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-1">
-                                {formatDateTime(lead.data_registro_contato)}
-                              </div>
-                              {lead.alterado_por_nome && lead.alterado_por_nome !== lead.criado_por_nome && (
-                                <div className="text-xs text-gray-400 mt-1">
-                                  <span className="flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    Alt. por {lead.alterado_por_nome}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          
-                          <td className="p-4">
-                            <div className="flex space-x-2">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(lead)}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleDelete(lead.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* NOVOS CONTROLES DE PAGINAÇÃO */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-sm text-gray-600">
-                    {isSearching && searchTerm.trim().length > 0 ? (
-                      <>
-                        Encontrados {filteredLeads.length} resultados para "{searchTerm}"
-                        {searchTotal > filteredLeads.length && ` (${searchTotal} no total)`}
-                      </>
-                    ) : showAllLeads ? (
-                      <>
-                        Mostrando TODOS os {leads.length} leads
-                        {(criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') && ' (com filtros aplicados)'}
-                      </>
-                    ) : (
-                      <>
-                        Mostrando {leads.length} leads
-                        {totalLeads > 0 && ` de ${totalLeads} total`}
-                      </>
-                    )}
-                  </div>
-                  
-                  <Select value={pageSize.toString()} onValueChange={(value) => {
-                    setPageSize(parseInt(value))
-                    reloadData()
-                  }}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5">5 por página</SelectItem>
-                      <SelectItem value="10">10 por página</SelectItem>
-                      <SelectItem value="20">20 por página</SelectItem>
-                      <SelectItem value="50">50 por página</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={reloadData}
-                    disabled={loading}
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                    Recarregar
-                  </Button>
-                  
-                  <Button
-                    variant={showAllLeads ? "default" : "outline"}
-                    size="sm"
-                    onClick={loadAllLeads}
-                    disabled={loading}
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    {showAllLeads ? 'Mostrando Todos' : 'Ver Todos'}
-                  </Button>
-                  
-                  {hasMorePages && !showAllLeads && (
-                    <Button
-                      onClick={loadNextPage}
-                      disabled={loading}
-                      size="sm"
-                    >
-                      {loading ? (
-                        <>
-                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          Carregando...
-                        </>
-                      ) : (
-                        <>
-                          Carregar mais
-                          <TrendingUp className="h-4 w-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
+              {leads.length === 0 ? (
+                <div className="text-center py-12">
+                  {isFilteringLocally ? (
+                    <>
+                      <Search className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead encontrado</h3>
+                      <p className="text-gray-600 mb-4">Tente ajustar os filtros para ver mais resultados</p>
+                      <Button onClick={clearAllFilters} variant="outline">
+                        Limpar todos os filtros
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead cadastrado</h3>
+                      <p className="text-gray-600 mb-4">Comece criando seu primeiro lead</p>
+                      <Button onClick={() => resetForm()}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Criar primeiro lead
+                      </Button>
+                    </>
                   )}
                 </div>
-              </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left p-4">Paciente</th>
+                        <th className="text-left p-4">Contato</th>
+                        <th className="text-left p-4">Canal</th>
+                        <th className="text-left p-4">Médico/Especialidade</th>
+                        <th className="text-left p-4">Valor</th>
+                        <th className="text-left p-4">Tags</th>
+                        <th className="text-left p-4">Status</th>
+                        <th className="text-left p-4">Criado por</th>
+                        <th className="text-left p-4">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leads.map((lead) => {
+                        const medico = medicos.find(m => m.id === lead.medico_agendado_id)
+                        const especialidade = especialidades.find(e => e.id === lead.especialidade_id)
+                        
+                        return (
+                          <tr key={lead.id} className="border-b hover:bg-gray-50">
+                            <td className="p-4">
+                              <div>
+                                <div className="font-medium">{lead.nome_paciente}</div>
+                                <div className="text-sm text-gray-500">
+                                  {new Date(lead.data_registro_contato).toLocaleDateString('pt-BR')}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="text-sm">
+                                <div>📞 {lead.telefone}</div>
+                                <div>✉️ {lead.email}</div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-sm">{lead.canal_contato}</span>
+                            </td>
+                            <td className="p-4">
+                              <div className="text-sm">
+                                <div className="font-medium">{medico?.nome || 'N/A'}</div>
+                                <div className="text-gray-500">{especialidade?.nome || 'N/A'}</div>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className="font-medium">
+                                R$ {(lead.valor_orcado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                            </td>
+                            
+                            {/* Nova coluna de Tags */}
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[150px]">
+                                {lead.tags?.map(tagId => {
+                                  const tag = getTagById(tagId)
+                                  return tag ? (
+                                    <span
+                                      key={tagId}
+                                      className="inline-flex items-center px-2 py-1 rounded-full text-white text-xs font-medium"
+                                      style={{ backgroundColor: tag.cor }}
+                                      title={tag.nome}
+                                    >
+                                      <Tag className="h-3 w-3 mr-1" />
+                                      {tag.nome.length > 8 ? tag.nome.substring(0, 8) + '...' : tag.nome}
+                                    </span>
+                                  ) : null
+                                })}
+                                {(!lead.tags || lead.tags.length === 0) && (
+                                  <span className="text-xs text-gray-400">Sem tags</span>
+                                )}
+                              </div>
+                            </td>
+                            
+                            <td className="p-4">
+                              <Badge className={getStatusColor(lead.status)}>
+                                {lead.status}
+                              </Badge>
+                            </td>
+
+                            {/* NOVA COLUNA: Criado por */}
+                            <td className="p-4">
+                              <div className="text-sm">
+                                <div className="flex items-center gap-1">
+                                  <User className="h-3 w-3 text-gray-400" />
+                                  <span className="font-medium">{lead.criado_por_nome || 'Sistema'}</span>
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1">
+                                  {formatDateTime(lead.data_registro_contato)}
+                                </div>
+                                {lead.alterado_por_nome && lead.alterado_por_nome !== lead.criado_por_nome && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    <span className="flex items-center gap-1">
+                                      <Clock className="h-3 w-3" />
+                                      Alt. por {lead.alterado_por_nome}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            
+                            <td className="p-4">
+                              <div className="flex space-x-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(lead)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleDelete(lead.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
