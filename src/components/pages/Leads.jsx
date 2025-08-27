@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle, User, Clock } from 'lucide-react'
+import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle, User, Clock, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -53,6 +53,9 @@ export default function Leads() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchResults, setSearchResults] = useState([])
   const [searchTotal, setSearchTotal] = useState(0)
+
+  // NOVO: Estado para controlar "ver todos"
+  const [showAllLeads, setShowAllLeads] = useState(false)
 
   // NOVO: Hook de autenticação
   const { user } = useAuth()
@@ -203,12 +206,13 @@ export default function Leads() {
     loadData(true) // true = resetar paginação na primeira carga
   }, [])
 
-  // NOVO: Recarregar dados quando filtros mudarem
+  // NOVO: Recarregar dados quando filtros mudarem (SIMPLIFICADO)
   useEffect(() => {
-    // Só recarregar se não for a primeira carga e se algum filtro foi aplicado
-    if (criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') {
+    // Só recarregar se não for a primeira carga
+    const isInitialLoad = criadoPorFilter === 'Todos' && statusFilter === 'Todos'
+    if (!isInitialLoad) {
       console.log('🔄 Filtros aplicados, recarregando dados:', { criadoPorFilter, statusFilter })
-      reloadData()
+      loadData(true) // Usar loadData diretamente em vez de reloadData
     }
   }, [criadoPorFilter, statusFilter])
 
@@ -230,6 +234,7 @@ export default function Leads() {
     try {
       setLoading(true)
       setError(null)
+      setShowAllLeads(false) // Resetar modo "ver todos"
       
       // Se resetar paginação, voltar para primeira página
       if (resetPagination) {
@@ -321,6 +326,68 @@ export default function Leads() {
     setCurrentPage(1)
     setLastDoc(null)
     await loadData(true) // true = resetar paginação
+  }
+
+  // NOVA FUNÇÃO: Carregar todos os leads
+  const loadAllLeads = async () => {
+    try {
+      setLoading(true)
+      setShowAllLeads(true)
+      
+      // Preparar filtros para a consulta
+      const filters = []
+      
+      // Filtro por usuário criador
+      if (criadoPorFilter !== 'Todos') {
+        filters.push({
+          field: 'criado_por_id',
+          operator: '==',
+          value: criadoPorFilter
+        })
+      }
+
+      // Filtro por status
+      if (statusFilter !== 'Todos') {
+        filters.push({
+          field: 'status',
+          operator: '==',
+          value: statusFilter
+        })
+      }
+
+      // Carregar TODOS os leads com filtros aplicados
+      let allLeads = []
+      if (filters.length > 0) {
+        // Se há filtros, usar getAll e aplicar filtros localmente
+        const allData = await firebaseDataService.getAll('leads')
+        allLeads = allData.filter(lead => {
+          return filters.every(filter => {
+            const fieldValue = lead[filter.field]
+            switch (filter.operator) {
+              case '==':
+                return fieldValue === filter.value
+              default:
+                return true
+            }
+          })
+        })
+      } else {
+        // Se não há filtros, carregar todos
+        allLeads = await firebaseDataService.getAll('leads')
+      }
+
+      setLeads(allLeads)
+      setTotalLeads(allLeads.length)
+      setHasMorePages(false) // Não há mais páginas quando mostra todos
+      
+      console.log(`📊 Carregados ${allLeads.length} leads (TODOS)`)
+      
+    } catch (err) {
+      console.error('Erro ao carregar todos os leads:', err)
+      setError('Erro ao carregar todos os leads. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   // NOVA FUNÇÃO: Busca global em toda a base
@@ -1741,11 +1808,16 @@ export default function Leads() {
             <CardContent className="pt-6">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-gray-600">
                     {isSearching && searchTerm.trim().length > 0 ? (
                       <>
                         Encontrados {filteredLeads.length} resultados para "{searchTerm}"
                         {searchTotal > filteredLeads.length && ` (${searchTotal} no total)`}
+                      </>
+                    ) : showAllLeads ? (
+                      <>
+                        Mostrando TODOS os {leads.length} leads
+                        {(criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') && ' (com filtros aplicados)'}
                       </>
                     ) : (
                       <>
@@ -1782,7 +1854,17 @@ export default function Leads() {
                     Recarregar
                   </Button>
                   
-                  {hasMorePages && (
+                  <Button
+                    variant={showAllLeads ? "default" : "outline"}
+                    size="sm"
+                    onClick={loadAllLeads}
+                    disabled={loading}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    {showAllLeads ? 'Mostrando Todos' : 'Ver Todos'}
+                  </Button>
+                  
+                  {hasMorePages && !showAllLeads && (
                     <Button
                       onClick={loadNextPage}
                       disabled={loading}
