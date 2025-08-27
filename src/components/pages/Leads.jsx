@@ -205,10 +205,12 @@ export default function Leads() {
 
   // NOVO: Recarregar dados quando filtros mudarem
   useEffect(() => {
-    if (criadoPorFilter !== 'Todos') {
+    // Só recarregar se não for a primeira carga e se algum filtro foi aplicado
+    if (criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') {
+      console.log('🔄 Filtros aplicados, recarregando dados:', { criadoPorFilter, statusFilter })
       reloadData()
     }
-  }, [criadoPorFilter])
+  }, [criadoPorFilter, statusFilter])
 
   // Configurar dados do usuário atual no window para o serviço
   useEffect(() => {
@@ -241,9 +243,18 @@ export default function Leads() {
       // Filtro por usuário criador
       if (criadoPorFilter !== 'Todos') {
         filters.push({
-          field: 'criadoPorId',
+          field: 'criado_por_id',
           operator: '==',
           value: criadoPorFilter
+        })
+      }
+
+      // NOVO: Filtro por status
+      if (statusFilter !== 'Todos') {
+        filters.push({
+          field: 'status',
+          operator: '==',
+          value: statusFilter
         })
       }
 
@@ -280,10 +291,13 @@ export default function Leads() {
       setTotalLeads(leadsResult.total || 0)
 
       // Extrair lista única de usuários criadores para o filtro
-      const uniqueUsers = [...new Set(leadsResult.data
-        .filter(lead => lead.criado_por_nome)
-        .map(lead => ({ id: lead.criado_por_id, nome: lead.criado_por_nome }))
-      )]
+      // NOVO: Carregar todos os usuários de toda a base, não apenas da página atual
+      const allLeadsForUsers = await firebaseDataService.getAll('leads')
+      const uniqueUsers = [...new Map(
+        allLeadsForUsers
+          .filter(lead => lead.criado_por_nome && lead.criado_por_id)
+          .map(lead => [lead.criado_por_id, { id: lead.criado_por_id, nome: lead.criado_por_nome }])
+      ).values()]
       setUsuarios(uniqueUsers)
       
     } catch (err) {
@@ -559,7 +573,7 @@ export default function Leads() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // FILTEREDLEADS CORRIGIDO - USA BUSCA GLOBAL OU FILTROS LOCAIS
+  // FILTEREDLEADS CORRIGIDO - USA BUSCA GLOBAL OU FILTROS GLOBAIS
   const filteredLeads = (() => {
     // Se está fazendo busca global, usar resultados da busca
     if (isSearching && searchTerm.trim().length > 0) {
@@ -575,16 +589,14 @@ export default function Leads() {
       })
     }
     
-    // Se não há busca, usar filtros locais nos dados paginados
+    // Se não há busca, os dados já vêm filtrados da consulta global
+    // Aplicar apenas filtros que não foram aplicados globalmente (como tags)
     return leads.filter(lead => {
-      const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
-      const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por === criadoPorFilter
-      
-      // NOVO: Filtro por tags
+      // NOVO: Filtro por tags (único filtro local necessário)
       const matchesTags = selectedTagsFilter.length === 0 || 
                          selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
       
-      return matchesStatus && matchesCriadoPor && matchesTags
+      return matchesTags
     })
   })()
 
