@@ -726,6 +726,84 @@ class FirebaseDataService {
     }
   }
 
+  // NOVO: Método para busca global em toda a base
+  async searchGlobal(entity, searchTerm, options = {}) {
+    if (this.useFirebase) {
+      try {
+        console.log(`Buscando "${searchTerm}" em ${entity}`)
+        
+        const result = await firestoreService.searchGlobal(this.getCollectionName(entity), searchTerm, options)
+        
+        // Transformar dados do Firebase para formato frontend
+        const transformedData = result.data.map(item => this.transformFromFirebase(entity, item))
+        
+        return {
+          data: transformedData,
+          total: result.total,
+          searchTerm: result.searchTerm
+        }
+      } catch (error) {
+        console.error('Erro na busca global do Firebase, usando localStorage como fallback')
+        
+        // Fallback para localStorage
+        const allData = this.getFromLocalStorage(entity)
+        const searchTermLower = searchTerm.toLowerCase()
+        
+        const filteredData = allData.filter(item => {
+          if (entity === 'leads') {
+            return (
+              item.nome_paciente?.toLowerCase().includes(searchTermLower) ||
+              item.telefone?.includes(searchTerm) ||
+              item.email?.toLowerCase().includes(searchTermLower) ||
+              item.canal_contato?.toLowerCase().includes(searchTermLower) ||
+              item.status?.toLowerCase().includes(searchTermLower)
+            )
+          }
+          
+          return (
+            item.nome?.toLowerCase().includes(searchTermLower) ||
+            item.email?.toLowerCase().includes(searchTermLower) ||
+            item.descricao?.toLowerCase().includes(searchTermLower)
+          )
+        })
+        
+        return {
+          data: filteredData,
+          total: filteredData.length,
+          searchTerm: searchTerm
+        }
+      }
+    } else {
+      // Implementação para localStorage
+      const allData = this.getFromLocalStorage(entity)
+      const searchTermLower = searchTerm.toLowerCase()
+      
+      const filteredData = allData.filter(item => {
+        if (entity === 'leads') {
+          return (
+            item.nome_paciente?.toLowerCase().includes(searchTermLower) ||
+            item.telefone?.includes(searchTerm) ||
+            item.email?.toLowerCase().includes(searchTermLower) ||
+            item.canal_contato?.toLowerCase().includes(searchTermLower) ||
+            item.status?.toLowerCase().includes(searchTermLower)
+          )
+        }
+        
+        return (
+          item.nome?.toLowerCase().includes(searchTermLower) ||
+          item.email?.toLowerCase().includes(searchTermLower) ||
+          item.descricao?.toLowerCase().includes(searchTermLower)
+        )
+      })
+      
+      return {
+        data: filteredData,
+        total: filteredData.length,
+        searchTerm: searchTerm
+      }
+    }
+  }
+
   async getById(entity, id) {
     if (this.useFirebase) {
       try {
@@ -949,7 +1027,7 @@ async update(entity, id, updatedItem) {
         const leads = this.getFromLocalStorage('leads')
         return leads.filter(lead => {
           const leadDate = new Date(lead.data_registro_contato)
-          return leadDate >= new Date(startDate) && leadDate <= new Date(endDate)
+          return leadDate >= new Date(startDate) && leadDate <= new Date(endDate
         })
       }
     } else {
