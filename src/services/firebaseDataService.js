@@ -711,8 +711,37 @@ class FirebaseDataService {
         }
       }
     } else {
-      // Implementação para localStorage
-      const allData = this.getFromLocalStorage(entity)
+      // Implementação para localStorage com filtros
+      let allData = this.getFromLocalStorage(entity)
+      
+      // Aplicar filtros se fornecidos
+      if (options.filters && options.filters.length > 0) {
+        allData = allData.filter(item => {
+          return options.filters.every(filter => {
+            const fieldValue = item[filter.field]
+            
+            switch (filter.operator) {
+              case '==':
+                return fieldValue === filter.value
+              case '!=':
+                return fieldValue !== filter.value
+              case '>':
+                return fieldValue > filter.value
+              case '<':
+                return fieldValue < filter.value
+              case '>=':
+                return fieldValue >= filter.value
+              case '<=':
+                return fieldValue <= filter.value
+              case 'array-contains':
+                return Array.isArray(fieldValue) && fieldValue.includes(filter.value)
+              default:
+                return true
+            }
+          })
+        })
+      }
+      
       const pageSize = options.pageSize || 10
       const startIndex = options.page ? (options.page - 1) * pageSize : 0
       const endIndex = startIndex + pageSize
