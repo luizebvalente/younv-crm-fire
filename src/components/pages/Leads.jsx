@@ -40,6 +40,15 @@ export default function Leads() {
   const [existingPatient, setExistingPatient] = useState(null)
   const [activeTab, setActiveTab] = useState('leads')
 
+  // NOVOS ESTADOS PARA PAGINAÇÃO
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+  const [totalLeads, setTotalLeads] = useState(0)
+  const [hasMorePages, setHasMorePages] = useState(false)
+  const [lastDoc, setLastDoc] = useState(null)
+  const [criadoPorFilter, setCriadoPorFilter] = useState('Todos')
+  const [usuarios, setUsuarios] = useState([])
+
   // NOVO: Hook de autenticação
   const { user } = useAuth()
 
@@ -186,8 +195,15 @@ export default function Leads() {
   }
 
   useEffect(() => {
-    loadData()
+    loadData(true) // true = resetar paginação na primeira carga
   }, [])
+
+  // NOVO: Recarregar dados quando filtros mudarem
+  useEffect(() => {
+    if (criadoPorFilter !== 'Todos') {
+      reloadData()
+    }
+  }, [criadoPorFilter])
 
   // Configurar dados do usuário atual no window para o serviço
   useEffect(() => {
@@ -202,31 +218,90 @@ export default function Leads() {
     }
   }, [user])
 
-  // LOADDATA CORRIGIDO - CARREGA TAGS TAMBÉM
-  const loadData = async () => {
+  // LOADDATA MODIFICADO PARA PAGINAÇÃO
+  const loadData = async (resetPagination = false) => {
     try {
       setLoading(true)
       setError(null)
       
-      const [leadsData, medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
-        firebaseDataService.getAll('leads'),
+      // Se resetar paginação, voltar para primeira página
+      if (resetPagination) {
+        setCurrentPage(1)
+        setLastDoc(null)
+      }
+
+      // Preparar filtros para a consulta
+      const filters = []
+      
+      // Filtro por usuário criador
+      if (criadoPorFilter !== 'Todos') {
+        filters.push({
+          field: 'criadoPorId',
+          operator: '==',
+          value: criadoPorFilter
+        })
+      }
+
+      // Carregar dados auxiliares (médicos, especialidades, etc.) - sem paginação
+      const [medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
         firebaseDataService.getAll('medicos'),
         firebaseDataService.getAll('especialidades'),
         firebaseDataService.getAll('procedimentos'),
-        firebaseDataService.getAll('tags') // NOVO
+        firebaseDataService.getAll('tags')
       ])
       
-      setLeads(leadsData)
+      // Carregar leads com paginação
+      const leadsResult = await firebaseDataService.getPaginated('leads', {
+        pageSize,
+        lastDoc: resetPagination ? null : lastDoc,
+        filters
+      })
+      
+      // Se resetar paginação, substituir leads; senão, adicionar à lista existente
+      if (resetPagination) {
+        setLeads(leadsResult.data)
+      } else {
+        setLeads(prev => [...prev, ...leadsResult.data])
+      }
+      
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
       setProcedimentos(procedimentosData)
-      setTags(tagsData) // NOVO
+      setTags(tagsData)
+      
+      // Atualizar estados de paginação
+      setHasMorePages(leadsResult.hasMore)
+      setLastDoc(leadsResult.lastDoc)
+      setTotalLeads(leadsResult.total || 0)
+
+      // Extrair lista única de usuários criadores para o filtro
+      const uniqueUsers = [...new Set(leadsResult.data
+        .filter(lead => lead.criado_por_nome)
+        .map(lead => ({ id: lead.criado_por_id, nome: lead.criado_por_nome }))
+      )]
+      setUsuarios(uniqueUsers)
+      
     } catch (err) {
       console.error('Erro ao carregar dados:', err)
       setError('Erro ao carregar dados. Tente novamente.')
     } finally {
       setLoading(false)
     }
+  }
+
+  // NOVA FUNÇÃO: Carregar próxima página
+  const loadNextPage = async () => {
+    if (!hasMorePages || loading) return
+    
+    setCurrentPage(prev => prev + 1)
+    await loadData(false) // false = não resetar paginação
+  }
+
+  // NOVA FUNÇÃO: Resetar e recarregar dados
+  const reloadData = async () => {
+    setCurrentPage(1)
+    setLastDoc(null)
+    await loadData(true) // true = resetar paginação
   }
 
   const checkExistingPatient = async (telefone) => {
@@ -314,7 +389,7 @@ export default function Leads() {
         await firebaseDataService.create('leads', dataToSave)
       }
       
-      await loadData()
+      await reloadData() // Recarregar dados com paginação resetada
       resetForm()
     } catch (err) {
       console.error('Erro ao salvar lead:', err)
@@ -368,7 +443,7 @@ export default function Leads() {
       try {
         setError(null)
         await firebaseDataService.delete('leads', id)
-        await loadData()
+        await reloadData() // Recarregar dados com paginação resetada
       } catch (err) {
         console.error('Erro ao excluir lead:', err)
         setError('Erro ao excluir lead. Tente novamente.')
@@ -1388,6 +1463,21 @@ export default function Leads() {
                 <SelectItem value="Faltou">Faltou</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* NOVO: Filtro por Criado por */}
+            <Select value={criadoPorFilter} onValueChange={setCriadoPorFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Criado por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos os usuários</SelectItem>
+                {usuarios.map(usuario => (
+                  <SelectItem key={usuario.id} value={usuario.id}>
+                    {usuario.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Filtro por Tags */}
@@ -1559,6 +1649,67 @@ export default function Leads() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* NOVOS CONTROLES DE PAGINAÇÃO */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="text-sm text-muted-foreground">
+                    Mostrando {leads.length} leads
+                    {totalLeads > 0 && ` de ${totalLeads} total`}
+                  </div>
+                  
+                  <Select value={pageSize.toString()} onValueChange={(value) => {
+                    setPageSize(parseInt(value))
+                    reloadData()
+                  }}>
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="5">5 por página</SelectItem>
+                      <SelectItem value="10">10 por página</SelectItem>
+                      <SelectItem value="20">20 por página</SelectItem>
+                      <SelectItem value="50">50 por página</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={reloadData}
+                    disabled={loading}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    Recarregar
+                  </Button>
+                  
+                  {hasMorePages && (
+                    <Button
+                      onClick={loadNextPage}
+                      disabled={loading}
+                      size="sm"
+                    >
+                      {loading ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Carregando...
+                        </>
+                      ) : (
+                        <>
+                          Carregar mais
+                          <TrendingUp className="h-4 w-4 ml-2" />
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
