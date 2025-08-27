@@ -208,11 +208,10 @@ export default function Leads() {
 
   // NOVO: Recarregar dados quando filtros mudarem (SIMPLIFICADO)
   useEffect(() => {
-    // Só recarregar se não for a primeira carga
-    const isInitialLoad = criadoPorFilter === 'Todos' && statusFilter === 'Todos'
-    if (!isInitialLoad) {
+    // Sempre recarregar quando filtros mudarem, exceto na primeira carga
+    if (criadoPorFilter !== 'Todos' || statusFilter !== 'Todos') {
       console.log('🔄 Filtros aplicados, recarregando dados:', { criadoPorFilter, statusFilter })
-      loadData(true) // Usar loadData diretamente em vez de reloadData
+      loadData(true) // Resetar paginação e recarregar
     }
   }, [criadoPorFilter, statusFilter])
 
@@ -646,7 +645,7 @@ export default function Leads() {
     if (isSearching && searchTerm.trim().length > 0) {
       return searchResults.filter(lead => {
         const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
-        const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por === criadoPorFilter
+        const matchesCriadoPor = criadoPorFilter === 'Todos' || lead.criado_por_id === criadoPorFilter
         
         // NOVO: Filtro por tags
         const matchesTags = selectedTagsFilter.length === 0 || 
