@@ -1027,7 +1027,7 @@ async update(entity, id, updatedItem) {
         const leads = this.getFromLocalStorage('leads')
         return leads.filter(lead => {
           const leadDate = new Date(lead.data_registro_contato)
-          return leadDate >= new Date(startDate) && leadDate <= new Date(endDate
+          return leadDate >= new Date(startDate) && leadDate <= new Date(endDate)
         })
       }
     } else {
