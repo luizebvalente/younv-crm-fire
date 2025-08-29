@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle, User, Clock, Eye } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Plus, Search, Filter, Edit, Trash2, Users, Calendar, DollarSign, TrendingUp, Check, RefreshCw, X, Tag, Settings, AlertTriangle, User, Clock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,7 +14,6 @@ import firebaseDataService from '@/services/firebaseDataService'
 
 export default function Leads() {
   const [leads, setLeads] = useState([])
-  const [allLeads, setAllLeads] = useState([]) // NOVO: Manter todos os leads carregados para filtros locais
   const [medicos, setMedicos] = useState([])
   const [especialidades, setEspecialidades] = useState([])
   const [procedimentos, setProcedimentos] = useState([])
@@ -40,11 +39,6 @@ export default function Leads() {
   const [statusFilter, setStatusFilter] = useState('Todos')
   const [existingPatient, setExistingPatient] = useState(null)
   const [activeTab, setActiveTab] = useState('leads')
-
-  // NOVOS ESTADOS PARA FILTROS CORRIGIDOS
-  const [criadoPorFilter, setCriadoPorFilter] = useState('Todos')
-  const [usuarios, setUsuarios] = useState([])
-  const [isFilteringLocally, setIsFilteringLocally] = useState(false) // NOVO: Flag para indicar se está filtrando localmente
 
   // NOVO: Hook de autenticação
   const { user } = useAuth()
@@ -158,7 +152,7 @@ export default function Leads() {
       if (result.success) {
         console.log('✅ Migração de tags concluída:', result)
         await loadData()
-        alert(`${result.message}\n\nEstatísticas:\n- Total: ${result.stats.total}\n- Migrados: ${result.stats.migrados}\n- Erros: ${result.stats.errors}`)
+        alert(`${result.message}\n\nEstatísticas:\n- Total: ${result.stats.total}\n- Migrados: ${result.stats.migrated}\n- Erros: ${result.stats.errors}`)
       } else {
         console.error('❌ Erro na migração de tags:', result)
         setError(result.message)
@@ -208,40 +202,25 @@ export default function Leads() {
     }
   }, [user])
 
-  // FUNÇÃO LOADDATA CORRIGIDA - Carrega TODOS os leads para filtros locais
+  // LOADDATA CORRIGIDO - CARREGA TAGS TAMBÉM
   const loadData = async () => {
     try {
       setLoading(true)
       setError(null)
       
-      console.log('🔄 Carregando todos os dados para filtros...')
-      
-      // Carregar TODOS os dados (não usar paginação para filtros funcionarem)
       const [leadsData, medicosData, especialidadesData, procedimentosData, tagsData] = await Promise.all([
-        firebaseDataService.getAll('leads'), // Carregar TODOS os leads
+        firebaseDataService.getAll('leads'),
         firebaseDataService.getAll('medicos'),
         firebaseDataService.getAll('especialidades'),
         firebaseDataService.getAll('procedimentos'),
-        firebaseDataService.getAll('tags')
+        firebaseDataService.getAll('tags') // NOVO
       ])
       
-      console.log(`✅ Carregados ${leadsData.length} leads no total`)
-      
-      setAllLeads(leadsData) // Manter TODOS os leads
-      setLeads(leadsData)    // Inicialmente mostrar todos
+      setLeads(leadsData)
       setMedicos(medicosData)
       setEspecialidades(especialidadesData)
       setProcedimentos(procedimentosData)
-      setTags(tagsData)
-      
-      // Extrair lista única de usuários criadores para o filtro
-      const uniqueUsers = [...new Map(
-        leadsData
-          .filter(lead => lead.criado_por_nome && lead.criado_por_id)
-          .map(lead => [lead.criado_por_id, { id: lead.criado_por_id, nome: lead.criado_por_nome }])
-      ).values()]
-      setUsuarios(uniqueUsers)
-      
+      setTags(tagsData) // NOVO
     } catch (err) {
       console.error('Erro ao carregar dados:', err)
       setError('Erro ao carregar dados. Tente novamente.')
@@ -250,91 +229,26 @@ export default function Leads() {
     }
   }
 
-  // NOVA FUNÇÃO: Aplicar todos os filtros localmente
-  const applyFilters = useCallback(() => {
-    console.log('🔍 Aplicando filtros locais...', {
-      searchTerm,
-      statusFilter,
-      criadoPorFilter,
-      selectedTagsFilter
-    })
-
-    let filteredResults = [...allLeads]
-
-    // Filtro por busca de texto
-    if (searchTerm.trim().length > 0) {
-      const searchLower = searchTerm.toLowerCase()
-      filteredResults = filteredResults.filter(lead => 
-        lead.nome_paciente?.toLowerCase().includes(searchLower) ||
-        lead.telefone?.includes(searchTerm) ||
-        lead.email?.toLowerCase().includes(searchLower) ||
-        lead.canal_contato?.toLowerCase().includes(searchLower) ||
-        lead.status?.toLowerCase().includes(searchLower) ||
-        lead.solicitacao_paciente?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Filtro por status
-    if (statusFilter !== 'Todos') {
-      filteredResults = filteredResults.filter(lead => lead.status === statusFilter)
-    }
-
-    // Filtro por usuário criador
-    if (criadoPorFilter !== 'Todos') {
-      filteredResults = filteredResults.filter(lead => lead.criado_por_id === criadoPorFilter)
-    }
-
-    // Filtro por tags
-    if (selectedTagsFilter.length > 0) {
-      filteredResults = filteredResults.filter(lead => 
-        selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
-      )
-    }
-
-    console.log(`✅ Filtros aplicados: ${filteredResults.length} de ${allLeads.length} leads`)
-    
-    setLeads(filteredResults)
-    setIsFilteringLocally(true)
-  }, [allLeads, searchTerm, statusFilter, criadoPorFilter, selectedTagsFilter])
-
-  // Effect para aplicar filtros quando mudarem
-  useEffect(() => {
-    if (allLeads.length > 0) {
-      applyFilters()
-    }
-  }, [applyFilters, allLeads])
-
-  // NOVA FUNÇÃO: Limpar todos os filtros
-  const clearAllFilters = () => {
-    console.log('🧹 Limpando todos os filtros')
-    setSearchTerm('')
-    setStatusFilter('Todos')
-    setCriadoPorFilter('Todos')
-    setSelectedTagsFilter([])
-    setLeads(allLeads)
-    setIsFilteringLocally(false)
-  }
-
   const checkExistingPatient = async (telefone) => {
     if (!telefone || telefone.length < 10) {
       setExistingPatient(null)
-      return false
+      return false // Retorna false se não há duplicação
     }
 
     try {
       const cleanPhone = telefone.replace(/\D/g, '')
-      const existingLead = allLeads.find(lead => 
+      const existingLead = leads.find(lead => 
         lead.telefone && lead.telefone.replace(/\D/g, '') === cleanPhone
       )
       
       if (existingLead && (!editingItem || existingLead.id !== editingItem.id)) {
         setExistingPatient(existingLead)
         setFormData(prev => ({ ...prev, tipo_visita: 'Recorrente' }))
-        return true
+        return true // Retorna true se há duplicação
       } else {
         setExistingPatient(null)
         setFormData(prev => ({ ...prev, tipo_visita: 'Primeira Visita' }))
-        return false
+        return false // Retorna false se não há duplicação
       }
     } catch (err) {
       console.error('Erro ao verificar paciente existente:', err)
@@ -400,7 +314,7 @@ export default function Leads() {
         await firebaseDataService.create('leads', dataToSave)
       }
       
-      await loadData() // Recarregar todos os dados
+      await loadData()
       resetForm()
     } catch (err) {
       console.error('Erro ao salvar lead:', err)
@@ -454,7 +368,7 @@ export default function Leads() {
       try {
         setError(null)
         await firebaseDataService.delete('leads', id)
-        await loadData() // Recarregar todos os dados
+        await loadData()
       } catch (err) {
         console.error('Erro ao excluir lead:', err)
         setError('Erro ao excluir lead. Tente novamente.')
@@ -514,10 +428,22 @@ export default function Leads() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // ESTATÍSTICAS BASEADAS NOS LEADS FILTRADOS (CORRIGIDO)
+  // FILTEREDLEADS CORRIGIDO - INCLUI FILTRO POR TAGS
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = lead.nome_paciente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         lead.telefone?.includes(searchTerm) ||
+                         lead.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
+    
+    // NOVO: Filtro por tags
+    const matchesTags = selectedTagsFilter.length === 0 || 
+                       selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
+    
+    return matchesSearch && matchesStatus && matchesTags
+  })
+
   const stats = {
-    total: leads.length, // Usar leads filtrados
-    totalDatabase: allLeads.length, // Total na base de dados
+    total: leads.length,
     agendados: leads.filter(lead => lead.status === 'Agendado').length,
     convertidos: leads.filter(lead => lead.status === 'Convertido').length,
     valorTotal: leads.filter(lead => lead.status === 'Convertido')
@@ -571,7 +497,7 @@ export default function Leads() {
 
   const handleDeleteTag = async (tagId) => {
     const tag = tags.find(t => t.id === tagId)
-    const leadCount = allLeads.filter(lead => lead.tags?.includes(tagId)).length
+    const leadCount = leads.filter(lead => lead.tags?.includes(tagId)).length
     
     const confirmMessage = leadCount > 0 
       ? `Tem certeza que deseja excluir a tag "${tag.nome}"?\n\nEla será removida de ${leadCount} leads.`
@@ -739,7 +665,7 @@ export default function Leads() {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {tagsCategoria.map(tag => {
-                    const leadCount = allLeads.filter(lead => lead.tags?.includes(tag.id)).length
+                    const leadCount = leads.filter(lead => lead.tags?.includes(tag.id)).length
                     
                     return (
                       <div key={tag.id} className="bg-gray-50 rounded-lg border p-4">
@@ -820,7 +746,7 @@ export default function Leads() {
             onClick={() => setActiveTab('leads')}
           >
             <Users className="mr-2 h-4 w-4" />
-            Leads ({stats.totalDatabase})
+            Leads ({leads.length})
           </Button>
           <Button
             variant={activeTab === 'tags' ? 'default' : 'outline'}
@@ -839,11 +765,6 @@ export default function Leads() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold">Lista de Leads</h2>
-              {isFilteringLocally && (
-                <p className="text-sm text-blue-600 mt-1">
-                  Mostrando {stats.total} de {stats.totalDatabase} leads (filtros aplicados)
-                </p>
-              )}
             </div>
             <div className="flex gap-2">
               <Button 
@@ -1376,9 +1297,7 @@ export default function Leads() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 hover:shadow-xl transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-gray-700">
-                  {isFilteringLocally ? 'Leads Filtrados' : 'Total de Leads'}
-                </CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-700">Total de Leads</CardTitle>
                 <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
                   <Users className="h-5 w-5 text-white" />
                 </div>
@@ -1386,17 +1305,8 @@ export default function Leads() {
               <CardContent>
                 <div className="text-3xl font-bold text-gray-900">{stats.total}</div>
                 <p className="text-sm text-gray-600 mt-2 flex items-center">
-                  {isFilteringLocally ? (
-                    <>
-                      <Filter className="h-4 w-4 text-blue-600 mr-1" />
-                      <span className="text-blue-600 font-medium">de {stats.totalDatabase} total</span>
-                    </>
-                  ) : (
-                    <>
-                      <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
-                      <span className="text-green-600 font-medium">Ativos</span>
-                    </>
-                  )}
+                  <TrendingUp className="h-4 w-4 text-green-600 mr-1" />
+                  <span className="text-green-600 font-medium">Ativos</span>
                 </p>
               </CardContent>
             </Card>
@@ -1452,284 +1362,204 @@ export default function Leads() {
             </Card>
           </div>
 
-          {/* NOVA SEÇÃO DE FILTROS CORRIGIDA */}
-          <Card className="bg-gray-50">
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg font-semibold">Filtros</CardTitle>
-                {isFilteringLocally && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={clearAllFilters}
-                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar pacientes, médicos..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-8"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos</SelectItem>
+                <SelectItem value="Lead">Lead</SelectItem>
+                <SelectItem value="Agendado">Agendado</SelectItem>
+                <SelectItem value="Convertido">Convertido</SelectItem>
+                <SelectItem value="Perdido">Perdido</SelectItem>
+                <SelectItem value="Não Agendou">Não Agendou</SelectItem>
+                <SelectItem value="Confirmado">Confirmado</SelectItem>
+                <SelectItem value="Faltou">Faltou</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Filtro por Tags */}
+          {tags.length > 0 && (
+            <Card className="bg-blue-50">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-blue-800">Filtrar por Tags</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2">
+                  {tags.map(tag => (
+                    <button
+                      key={tag.id}
+                      onClick={() => toggleTagFilter(tag.id)}
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2 transition-all ${
+                        selectedTagsFilter.includes(tag.id)
+                          ? 'text-white border-transparent'
+                          : 'text-gray-700 bg-white border-gray-300 hover:border-gray-400'
+                      }`}
+                      style={{
+                        backgroundColor: selectedTagsFilter.includes(tag.id) ? tag.cor : 'white',
+                        borderColor: selectedTagsFilter.includes(tag.id) ? tag.cor : '#d1d5db'
+                      }}
+                    >
+                      <Tag className="h-3 w-3" />
+                      {tag.nome}
+                    </button>
+                  ))}
+                </div>
+                {selectedTagsFilter.length > 0 && (
+                  <button
+                    onClick={() => setSelectedTagsFilter([])}
+                    className="mt-2 text-sm text-blue-600 hover:text-blue-800"
                   >
-                    <X className="h-4 w-4 mr-2" />
-                    Limpar Filtros
-                  </Button>
+                    Limpar filtros de tags
+                  </button>
                 )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Primeira linha de filtros */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome, telefone, email..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-8"
-                  />
-                </div>
-                
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Todos">Todos os Status</SelectItem>
-                    <SelectItem value="Lead">Lead</SelectItem>
-                    <SelectItem value="Agendado">Agendado</SelectItem>
-                    <SelectItem value="Convertido">Convertido</SelectItem>
-                    <SelectItem value="Perdido">Perdido</SelectItem>
-                    <SelectItem value="Não Agendou">Não Agendou</SelectItem>
-                    <SelectItem value="Confirmado">Confirmado</SelectItem>
-                    <SelectItem value="Faltou">Faltou</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                <Select value={criadoPorFilter} onValueChange={setCriadoPorFilter}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Filtrar por criador" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Todos">Todos os Usuários</SelectItem>
-                    {usuarios.map(usuario => (
-                      <SelectItem key={usuario.id} value={usuario.id}>
-                        {usuario.nome}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Filtros de Tags */}
-              {tags.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Filtrar por Tags</label>
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map(tag => (
-                      <button
-                        key={tag.id}
-                        onClick={() => toggleTagFilter(tag.id)}
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border-2 transition-all ${
-                          selectedTagsFilter.includes(tag.id)
-                            ? 'text-white border-transparent'
-                            : 'text-gray-700 bg-white border-gray-300 hover:border-gray-400'
-                        }`}
-                        style={{
-                          backgroundColor: selectedTagsFilter.includes(tag.id) ? tag.cor : 'white',
-                          borderColor: selectedTagsFilter.includes(tag.id) ? tag.cor : '#d1d5db'
-                        }}
-                      >
-                        <Tag className="h-3 w-3" />
-                        {tag.nome}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Indicador de Filtros Ativos */}
-              {isFilteringLocally && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-blue-800">
-                      <Filter className="h-4 w-4" />
-                      <span className="font-medium">Filtros ativos:</span>
-                      {searchTerm && <Badge variant="secondary">Busca: "{searchTerm}"</Badge>}
-                      {statusFilter !== 'Todos' && <Badge variant="secondary">Status: {statusFilter}</Badge>}
-                      {criadoPorFilter !== 'Todos' && (
-                        <Badge variant="secondary">
-                          Criado por: {usuarios.find(u => u.id === criadoPorFilter)?.nome}
-                        </Badge>
-                      )}
-                      {selectedTagsFilter.length > 0 && (
-                        <Badge variant="secondary">{selectedTagsFilter.length} tags</Badge>
-                      )}
-                    </div>
-                    <span className="text-sm text-blue-600 font-medium">
-                      {stats.total} de {stats.totalDatabase} leads
-                    </span>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Leads Table */}
           <Card>
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Lista de Leads</CardTitle>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Users className="h-4 w-4" />
-                  <span>{leads.length} lead{leads.length !== 1 ? 's' : ''} exibido{leads.length !== 1 ? 's' : ''}</span>
-                </div>
-              </div>
+              <CardTitle>Lista de Leads</CardTitle>
             </CardHeader>
             <CardContent>
-              {leads.length === 0 ? (
-                <div className="text-center py-12">
-                  {isFilteringLocally ? (
-                    <>
-                      <Search className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead encontrado</h3>
-                      <p className="text-gray-600 mb-4">Tente ajustar os filtros para ver mais resultados</p>
-                      <Button onClick={clearAllFilters} variant="outline">
-                        Limpar todos os filtros
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <Users className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum lead cadastrado</h3>
-                      <p className="text-gray-600 mb-4">Comece criando seu primeiro lead</p>
-                      <Button onClick={() => resetForm()}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar primeiro lead
-                      </Button>
-                    </>
-                  )}
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="text-left p-4">Paciente</th>
-                        <th className="text-left p-4">Contato</th>
-                        <th className="text-left p-4">Canal</th>
-                        <th className="text-left p-4">Médico/Especialidade</th>
-                        <th className="text-left p-4">Valor</th>
-                        <th className="text-left p-4">Tags</th>
-                        <th className="text-left p-4">Status</th>
-                        <th className="text-left p-4">Criado por</th>
-                        <th className="text-left p-4">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {leads.map((lead) => {
-                        const medico = medicos.find(m => m.id === lead.medico_agendado_id)
-                        const especialidade = especialidades.find(e => e.id === lead.especialidade_id)
-                        
-                        return (
-                          <tr key={lead.id} className="border-b hover:bg-gray-50">
-                            <td className="p-4">
-                              <div>
-                                <div className="font-medium">{lead.nome_paciente}</div>
-                                <div className="text-sm text-gray-500">
-                                  {new Date(lead.data_registro_contato).toLocaleDateString('pt-BR')}
-                                </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left p-4">Paciente</th>
+                      <th className="text-left p-4">Contato</th>
+                      <th className="text-left p-4">Canal</th>
+                      <th className="text-left p-4">Médico/Especialidade</th>
+                      <th className="text-left p-4">Valor</th>
+                      <th className="text-left p-4">Tags</th>
+                      <th className="text-left p-4">Status</th>
+                      <th className="text-left p-4">Criado por</th>
+                      <th className="text-left p-4">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredLeads.map((lead) => {
+                      const medico = medicos.find(m => m.id === lead.medico_agendado_id)
+                      const especialidade = especialidades.find(e => e.id === lead.especialidade_id)
+                      
+                      return (
+                        <tr key={lead.id} className="border-b hover:bg-gray-50">
+                          <td className="p-4">
+                            <div>
+                              <div className="font-medium">{lead.nome_paciente}</div>
+                              <div className="text-sm text-gray-500">
+                                {new Date(lead.data_registro_contato).toLocaleDateString('pt-BR')}
                               </div>
-                            </td>
-                            <td className="p-4">
-                              <div className="text-sm">
-                                <div>📞 {lead.telefone}</div>
-                                <div>✉️ {lead.email}</div>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className="text-sm">{lead.canal_contato}</span>
-                            </td>
-                            <td className="p-4">
-                              <div className="text-sm">
-                                <div className="font-medium">{medico?.nome || 'N/A'}</div>
-                                <div className="text-gray-500">{especialidade?.nome || 'N/A'}</div>
-                              </div>
-                            </td>
-                            <td className="p-4">
-                              <span className="font-medium">
-                                R$ {(lead.valor_orcado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                            </td>
-                            
-                            {/* Nova coluna de Tags */}
-                            <td className="p-4">
-                              <div className="flex flex-wrap gap-1 max-w-[150px]">
-                                {lead.tags?.map(tagId => {
-                                  const tag = getTagById(tagId)
-                                  return tag ? (
-                                    <span
-                                      key={tagId}
-                                      className="inline-flex items-center px-2 py-1 rounded-full text-white text-xs font-medium"
-                                      style={{ backgroundColor: tag.cor }}
-                                      title={tag.nome}
-                                    >
-                                      <Tag className="h-3 w-3 mr-1" />
-                                      {tag.nome.length > 8 ? tag.nome.substring(0, 8) + '...' : tag.nome}
-                                    </span>
-                                  ) : null
-                                })}
-                                {(!lead.tags || lead.tags.length === 0) && (
-                                  <span className="text-xs text-gray-400">Sem tags</span>
-                                )}
-                              </div>
-                            </td>
-                            
-                            <td className="p-4">
-                              <Badge className={getStatusColor(lead.status)}>
-                                {lead.status}
-                              </Badge>
-                            </td>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <div className="text-sm">
+                              <div>📞 {lead.telefone}</div>
+                              <div>✉️ {lead.email}</div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="text-sm">{lead.canal_contato}</span>
+                          </td>
+                          <td className="p-4">
+                            <div className="text-sm">
+                              <div className="font-medium">{medico?.nome || 'N/A'}</div>
+                              <div className="text-gray-500">{especialidade?.nome || 'N/A'}</div>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <span className="font-medium">
+                              R$ {(lead.valor_orcado || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </span>
+                          </td>
+                          
+                          {/* Nova coluna de Tags */}
+                          <td className="p-4">
+                            <div className="flex flex-wrap gap-1 max-w-[150px]">
+                              {lead.tags?.map(tagId => {
+                                const tag = getTagById(tagId)
+                                return tag ? (
+                                  <span
+                                    key={tagId}
+                                    className="inline-flex items-center px-2 py-1 rounded-full text-white text-xs font-medium"
+                                    style={{ backgroundColor: tag.cor }}
+                                    title={tag.nome}
+                                  >
+                                    <Tag className="h-3 w-3 mr-1" />
+                                    {tag.nome.length > 8 ? tag.nome.substring(0, 8) + '...' : tag.nome}
+                                  </span>
+                                ) : null
+                              })}
+                              {(!lead.tags || lead.tags.length === 0) && (
+                                <span className="text-xs text-gray-400">Sem tags</span>
+                              )}
+                            </div>
+                          </td>
+                          
+                          <td className="p-4">
+                            <Badge className={getStatusColor(lead.status)}>
+                              {lead.status}
+                            </Badge>
+                          </td>
 
-                            {/* NOVA COLUNA: Criado por */}
-                            <td className="p-4">
-                              <div className="text-sm">
-                                <div className="flex items-center gap-1">
-                                  <User className="h-3 w-3 text-gray-400" />
-                                  <span className="font-medium">{lead.criado_por_nome || 'Sistema'}</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">
-                                  {formatDateTime(lead.data_registro_contato)}
-                                </div>
-                                {lead.alterado_por_nome && lead.alterado_por_nome !== lead.criado_por_nome && (
-                                  <div className="text-xs text-gray-400 mt-1">
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      Alt. por {lead.alterado_por_nome}
-                                    </span>
-                                  </div>
-                                )}
+                          {/* NOVA COLUNA: Criado por */}
+                          <td className="p-4">
+                            <div className="text-sm">
+                              <div className="flex items-center gap-1">
+                                <User className="h-3 w-3 text-gray-400" />
+                                <span className="font-medium">{lead.criado_por_nome || 'Sistema'}</span>
                               </div>
-                            </td>
-                            
-                            <td className="p-4">
-                              <div className="flex space-x-2">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(lead)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleDelete(lead.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {formatDateTime(lead.data_registro_contato)}
                               </div>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                              {lead.alterado_por_nome && lead.alterado_por_nome !== lead.criado_por_nome && (
+                                <div className="text-xs text-gray-400 mt-1">
+                                  <span className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    Alt. por {lead.alterado_por_nome}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          
+                          <td className="p-4">
+                            <div className="flex space-x-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(lead)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDelete(lead.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </CardContent>
           </Card>
         </div>
