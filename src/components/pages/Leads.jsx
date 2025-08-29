@@ -37,6 +37,10 @@ export default function Leads() {
   const [editingItem, setEditingItem] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('Todos')
+  
+  // NOVO: Estado para filtro "Criado por"
+  const [createdByFilter, setCreatedByFilter] = useState('Todos')
+  
   const [existingPatient, setExistingPatient] = useState(null)
   const [activeTab, setActiveTab] = useState('leads')
 
@@ -183,6 +187,17 @@ export default function Leads() {
     } finally {
       setMigrating(false)
     }
+  }
+
+  // NOVA FUNÇÃO: Obter lista única de criadores para o filtro
+  const getUniqueCreators = () => {
+    const creators = new Set()
+    leads.forEach(lead => {
+      if (lead.criado_por_nome) {
+        creators.add(lead.criado_por_nome)
+      }
+    })
+    return Array.from(creators).sort()
   }
 
   useEffect(() => {
@@ -428,18 +443,21 @@ export default function Leads() {
     return colors[status] || 'bg-gray-100 text-gray-800'
   }
 
-  // FILTEREDLEADS CORRIGIDO - INCLUI FILTRO POR TAGS
+  // FILTEREDLEADS CORRIGIDO - INCLUI FILTRO POR TAGS E CRIADO POR
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.nome_paciente?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          lead.telefone?.includes(searchTerm) ||
                          lead.email?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'Todos' || lead.status === statusFilter
     
+    // NOVO: Filtro por criador
+    const matchesCreator = createdByFilter === 'Todos' || lead.criado_por_nome === createdByFilter
+    
     // NOVO: Filtro por tags
     const matchesTags = selectedTagsFilter.length === 0 || 
                        selectedTagsFilter.every(tagId => lead.tags?.includes(tagId))
     
-    return matchesSearch && matchesStatus && matchesTags
+    return matchesSearch && matchesStatus && matchesCreator && matchesTags
   })
 
   const stats = {
@@ -1362,7 +1380,7 @@ export default function Leads() {
             </Card>
           </div>
 
-          {/* Filters */}
+          {/* Filters - SEÇÃO MODIFICADA COM NOVO FILTRO "CRIADO POR" */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -1373,6 +1391,7 @@ export default function Leads() {
                 className="pl-8"
               />
             </div>
+            
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue />
@@ -1388,6 +1407,69 @@ export default function Leads() {
                 <SelectItem value="Faltou">Faltou</SelectItem>
               </SelectContent>
             </Select>
+            
+            {/* NOVO: Filtro por Criado por */}
+            <Select value={createdByFilter} onValueChange={setCreatedByFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Criado por..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Todos">Todos os usuários</SelectItem>
+                {getUniqueCreators().map((creator) => (
+                  <SelectItem key={creator} value={creator}>
+                    {creator}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* NOVO: Indicadores visuais dos filtros ativos */}
+          <div className="flex flex-wrap gap-2">
+            {createdByFilter !== 'Todos' && (
+              <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200">
+                <User className="h-4 w-4" />
+                <span>Criado por: {createdByFilter}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 hover:bg-blue-200"
+                  onClick={() => setCreatedByFilter('Todos')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            
+            {statusFilter !== 'Todos' && (
+              <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1 rounded-lg border border-green-200">
+                <Filter className="h-4 w-4" />
+                <span>Status: {statusFilter}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 hover:bg-green-200"
+                  onClick={() => setStatusFilter('Todos')}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+            
+            {selectedTagsFilter.length > 0 && (
+              <div className="flex items-center gap-2 text-sm text-purple-600 bg-purple-50 px-3 py-1 rounded-lg border border-purple-200">
+                <Tag className="h-4 w-4" />
+                <span>{selectedTagsFilter.length} tag(s) selecionada(s)</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 hover:bg-purple-200"
+                  onClick={() => setSelectedTagsFilter([])}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Filtro por Tags */}
@@ -1429,10 +1511,25 @@ export default function Leads() {
             </Card>
           )}
 
-          {/* Leads Table */}
+          {/* Leads Table - TABELA ATUALIZADA COM ESTATÍSTICAS DE FILTROS */}
           <Card>
             <CardHeader>
-              <CardTitle>Lista de Leads</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                Lista de Leads
+                <div className="flex items-center gap-4 text-sm text-gray-600">
+                  <span>{filteredLeads.length} de {leads.length} leads</span>
+                  {createdByFilter !== 'Todos' && (
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                      Por: {createdByFilter}
+                    </Badge>
+                  )}
+                  {statusFilter !== 'Todos' && (
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                      {statusFilter}
+                    </Badge>
+                  )}
+                </div>
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
